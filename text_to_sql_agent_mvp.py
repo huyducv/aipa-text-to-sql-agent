@@ -2,15 +2,20 @@
 Text-to-SQL Enterprise Agent (1-week MVP)
 ========================================
 
-This file is intentionally "notebook-friendly":
-- You can run it as a script: `python text_to_sql_agent_mvp.py`
-- Or copy/paste each section into a Jupyter Notebook as separate cells.
+This module contains the core backend pipeline for a local, safe Text-to-SQL agent:
+- Local SQLite only
+- No RAG: static schema injection (extract CREATE TABLE DDL and inject into prompt)
+- Strict separation: LLM generates SQL text only; Python executes
+- Safety first: deterministic gate blocks data-modifying SQL keywords
 
-Architectural guardrails implemented here:
-- Local SQLite only (university_agent.db)
-- No RAG / embeddings: we use static schema injection (extract CREATE TABLE DDL and inject into prompt)
-- Strict separation: LLM generates SQL text only; Python executes it
-- Safety first: deterministic safety gate blocks data-modifying SQL keywords
+It also includes:
+- A synthetic "university" dataset builder (useful for demos/tests)
+- A CSV ingestion utility to create a SQLite DB from user-provided CSVs
+- A convenience router that chooses DB vs CSV workflow automatically
+
+Notes:
+- Nothing executes at import time; use `__main__` or call functions from a notebook.
+- API keys should be stored in `.env` (gitignored) and loaded into `GEMINI_API_KEY`.
 """
 
 from __future__ import annotations
@@ -19,9 +24,38 @@ import os
 import re
 import sqlite3
 from dataclasses import dataclass
-from typing import Any, Iterable, Optional
+from pathlib import Path
+from typing import Any
 
 import pandas as pd
+try:
+    import google.generativeai as genai  # type: ignore
+except ModuleNotFoundError:  # pragma: no cover
+    genai = None
+
+try:
+    from dotenv import load_dotenv  # type: ignore
+except ModuleNotFoundError:  # pragma: no cover
+    load_dotenv = None
+
+
+def load_env(env_path: str | None = None) -> None:
+    """
+    Load environment variables from a `.env` file.
+
+    Default behavior:
+    - If `env_path` is provided, load from that exact path.
+    - Otherwise, load from `<project_root>/.env` (same folder as this file).
+    """
+    if load_dotenv is None:
+        return
+
+    if env_path is not None:
+        load_dotenv(env_path)
+        return
+
+    here = Path(__file__).resolve().parent
+    load_dotenv(here / ".env")
 
 
 # ============================================================
@@ -169,6 +203,46 @@ def write_university_db(db_path: str = "university_agent.db") -> str:
 
 
 # ============================================================
+# Task 1: CSV ingestion utility (CSV -> SQLite)
+# ============================================================
+
+def ingest_csvs_to_db(csv_file_paths: list[str], output_db_path: str = "dynamic_agent.db") -> str:
+    """
+    Ingest one or more CSV files into a local SQLite database.
+
+    Behavior:
+    - For each CSV path: read with pandas, write to SQLite using table name = file stem.
+      Example: `data/financials.csv` -> table `financials`
+    - Replaces the table if it already exists.
+    - Creates a fresh DB file each run (overwrites `output_db_path`).
+
+    Trade-offs / report notes:
+    - `to_sql(if_exists="replace")` is convenient but doesn't preserve constraints or
+      strong typing. For an MVP it's acceptable; for production add explicit DDL.
+    """
+    if not csv_file_paths:
+        raise ValueError("csv_file_paths must contain at least one CSV path")
+
+    out_path = Path(output_db_path)
+    if out_path.exists():
+        out_path.unlink()
+
+    with sqlite3.connect(str(out_path)) as conn:
+        for csv_path_str in csv_file_paths:
+            csv_path = Path(csv_path_str)
+            if not csv_path.exists():
+                raise FileNotFoundError(f"CSV not found: {csv_path}")
+            if csv_path.suffix.lower() != ".csv":
+                raise ValueError(f"Not a .csv file: {csv_path}")
+
+            table_name = csv_path.stem
+            df = pd.read_csv(csv_path)
+            df.to_sql(table_name, conn, if_exists="replace", index=False)
+
+    return str(out_path)
+
+
+# ============================================================
 # Step 2: Core Backend Pipeline
 # ============================================================
 
@@ -228,14 +302,24 @@ def generate_sql(user_question: str, schema_text: str, *, model_name: str = "gem
     - Prompt-injection risk exists (e.g., user asks to "DROP TABLE"). We still
       deterministically block dangerous tokens before execution.
     """
-    # Lazy import so the rest of the notebook can run without the dependency installed.
-    import google.generativeai as genai  # type: ignore
+    if genai is None:
+        raise ModuleNotFoundError(
+            "google-generativeai is not installed. Run: pip install google-generativeai"
+        )
 
-    # Placeholder key: replace with environment variable in real use.
-    # For assignment submission, never hardcode real secrets into Git.
-    genai.configure(api_key=os.environ.get("GEMINI_API_KEY", "PASTE_YOUR_API_KEY_HERE"))
+    # Load from `.env` (gitignored) if present. Safe to call repeatedly.
+    load_env()
 
-    model = genai.GenerativeModel(model_name)
+    api_key = (os.environ.get("GEMINI_API_KEY") or "").strip()
+    if not api_key:
+        raise ValueError("GEMINI_API_KEY is missing. Set it in `.env` or environment variables.")
+
+    genai.configure(api_key=api_key)
+
+    model = genai.GenerativeModel(
+        model_name,
+        system_instruction=SQL_TRANSLATION_SYSTEM_PROMPT,
+    )
 
     prompt = f"""\
 ### SQLite schema (DDL)
@@ -245,17 +329,15 @@ def generate_sql(user_question: str, schema_text: str, *, model_name: str = "gem
 {user_question}
 """
 
-    resp = model.generate_content(
-        prompt,
+    response = model.generate_content(
+        contents=prompt,
         generation_config={
-            "temperature": 0.0,  # deterministic-ish for reproducibility
+            "temperature": 0.0,
             "max_output_tokens": 512,
         },
-        system_instruction=SQL_TRANSLATION_SYSTEM_PROMPT,
     )
 
-    # Gemini SDK returns structured parts; `.text` is the simplest.
-    sql = (resp.text or "").strip()
+    sql = (response.text or "").strip()
 
     # Defensive cleanup: if the model "helpfully" returns code fences, remove them.
     sql = re.sub(r"^```(?:sql)?\s*", "", sql, flags=re.IGNORECASE).strip()
@@ -352,8 +434,7 @@ def ask_database(
       (Alternative: raise exceptions and let UI handle them.)
     """
     if not os.path.exists(db_path):
-        # Auto-initialize for notebook convenience.
-        write_university_db(db_path)
+        raise FileNotFoundError("input database not found")
 
     try:
         schema_text = get_schema(db_path)
@@ -376,21 +457,46 @@ def ask_database(
         return QueryResult(columns=["error"], rows=[(f"{type(e).__name__}: {e}",)])
 
 
+def ask_from_files(
+    question: str,
+    file_paths: list[str] | str,
+    *,
+    output_db_path: str = "dynamic_agent.db",
+    model_name: str = "gemini-1.5-flash",
+) -> QueryResult:
+    """
+    Auto-select workflow:
+    - single `.db` -> query directly
+    - one or more `.csv` -> ingest to SQLite then query
+
+    Mixed file types are rejected.
+    """
+    paths = [file_paths] if isinstance(file_paths, str) else list(file_paths)
+    if not paths:
+        raise ValueError("file_paths must contain at least one path")
+
+    exts = {Path(p).suffix.lower() for p in paths}
+
+    if exts == {".db"}:
+        if len(paths) != 1:
+            raise ValueError("Provide exactly one .db file path")
+        return ask_database(question, db_path=paths[0], model_name=model_name)
+
+    if exts == {".csv"}:
+        db_path = ingest_csvs_to_db(paths, output_db_path=output_db_path)
+        return ask_database(question, db_path=db_path, model_name=model_name)
+
+    raise ValueError(f"Unsupported or mixed file types: {sorted(exts)}")
+
+
 # ============================================================
 # Quick demo (optional when running as a script)
 # ============================================================
 
 if __name__ == "__main__":
-    db = write_university_db("university_agent.db")
-    print(f"Created DB: {db}")
-    print("Schema:\n", get_schema(db))
+    # 1) Build a demo university DB (synthetic)
+    demo_db = write_university_db("university_agent.db")
+    print(f"Created demo DB: {demo_db}")
 
-    # Note: requires GEMINI_API_KEY to actually generate SQL.
-    # Example questions you can try in a notebook:
-    # - "List the top 5 students by average score."
-    # - "How many students are enrolled in each major?"
-    # - "Show each course and the number of distinct students who took it."
-    res = ask_database("How many students are enrolled in each major?", db_path=db)
-    print(res.columns)
-    for r in res.rows[:10]:
-        print(r)
+    # 2) Query it (requires GEMINI_API_KEY in `.env` or env vars)
+    print(ask_database("How many students are enrolled in each major?", db_path=demo_db))

@@ -1,0 +1,5 @@
+sale_id,customer_id,amount,region
+1001,1,120.0,APAC
+1002,2,550.0,APAC
+1003,2,75.0,EU
+1004,3,220.0,APAC
