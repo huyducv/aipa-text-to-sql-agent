@@ -1,95 +1,100 @@
-# Enterprise Text-to-SQL Agent (Local Execution Architecture)
+# Enterprise Text-to-SQL Agent
 
-**An AI-driven decision support system translating natural language to secure, locally executed SQL queries.**
+An AI-assisted decision support prototype that translates natural-language questions into safe, locally executed SQLite queries.
 
-## 📖 Project Overview
+## Project Overview
 
-Stakeholders in modern enterprises often require immediate insights from structured data but are bottlenecked by the technical requirement of writing SQL. This project presents an MVP for an intelligent **Text-to-SQL Agent** that bridges this gap. 
+This repo contains a Streamlit MVP for querying structured data without writing SQL. The application sends only database schema metadata to Gemini, receives a candidate SQLite `SELECT` query, validates it, and executes it locally against the selected SQLite database.
 
-Designed for a 1-week rapid prototyping cycle, this solution integrates multiple AI paradigms to deliver a secure, scalable, and highly accurate query generation pipeline. Crucially, the architecture strictly separates the generative reasoning environment from the local data execution environment, ensuring absolute data privacy.
+The LLM never receives table rows or raw user data.
 
-### 🧠 Integrated AI Paradigms
-1. **Generative AI (LLMs):** Utilizing `gemini-2.5-flash` strictly as a translation layer (Natural Language → SQLite syntax).
-2. **Structural Knowledge Representation:** Deterministic extraction and injection of the database schema (Data Definition Language) into the LLM context, grounding the model to prevent hallucinations.
-3. **Deterministic Logic / Expert Rules:** A programmatic safety boundary that intercepts the generated SQL and evaluates it against strict read-only rules prior to execution.
+## Architecture
 
----
+1. Schema extraction: Python reads `CREATE TABLE` statements from the local SQLite database.
+2. Context injection: The user question and schema DDL are sent to Gemini.
+3. SQL generation: Gemini returns a single SQLite query.
+4. Safety validation: Python checks that the query is read-only and does not reference SQLite internals.
+5. Read-only execution: SQLite is opened in read-only mode with query-only and authorizer protections.
+6. Result rendering: Streamlit displays the generated result table and optional schema details.
 
-## 🏗️ System Architecture
+## Key Files
 
-To ensure data privacy and system integrity, **the LLM never accesses the actual database records**.
-
-1. **Schema Extraction:** The Python backend queries the local `.db` file for its `CREATE TABLE` definitions.
-2. **Context Injection:** The user's plain-English question and the database schema are bundled and sent to the Gemini API.
-3. **Generative Translation:** The LLM returns a raw SQL string.
-4. **Safety Validation:** A deterministic Python function scans the SQL string to ensure no destructive keywords (`DROP`, `DELETE`, `UPDATE`, `INSERT`) are present.
-5. **Local Execution:** If safe, the query is executed natively against the local SQLite database.
-6. **Delivery:** Results are fetched locally and rendered in the Streamlit UI.
-
----
-
-## 🚀 Installation & Setup
-
-### Prerequisites
-* Python 3.9+
-* Google Gemini API Key
-
-### 1. Clone the repository
-```bash
-git clone [https://github.com/huyducv/aipa-text-to-sql-agent.git](https://github.com/huyducv/aipa-text-to-sql-agent.git)
-cd aipa-text-to-sql-agent
+```text
+.
+|-- app.py                         # Streamlit frontend
+|-- text_to_sql_agent_mvp.py        # Core backend pipeline and demo data builder
+|-- requirements.txt                # Runtime dependencies
+|-- tests/                          # Unit tests
+|-- data/
+|   |-- customers.csv               # Small CSV sample
+|   |-- sales.csv                   # Small CSV sample
+|   |-- dynamic_agent.db            # Sample/generated SQLite DB
+|   `-- university_agent.db         # Demo SQLite DB
+`-- text_to_sql_agent_mvp.ipynb     # Notebook version of the MVP exploration
 ```
 
-### 2. Install dependencies
+## Requirements
+
+- Python 3.9+
+- Google Gemini API key
+
+## Setup
+
 ```bash
+python -m venv .venv
+.venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 3. Set your API Key
-Create a `.env` file in the root directory or set it in your terminal:
+Create a `.env` file in the project root:
+
 ```bash
-export GEMINI_API_KEY="your_api_key_here"
+GEMINI_API_KEY=your_api_key_here
 ```
 
----
+## Create Demo Data
 
-## 💻 Usage
+The demo database can be created from the backend module:
 
-### Step 1: Initialize the Database
-Before running the app, you must convert the raw CSV files into the local SQLite database. Run the initialization script:
 ```bash
-python scripts/init_database.py
+python -c "import text_to_sql_agent_mvp as a; a.write_university_db('data/university_agent.db')"
 ```
 
-### Step 2: Launch the App
-Start the Streamlit interface:
+## Run the App
+
 ```bash
 streamlit run app.py
 ```
 
----
+In the sidebar you can:
 
-## 📁 Project Structure
-```text
-├── data/
-│   ├── students.csv          # Raw data
-│   ├── courses.csv           # Raw data
-│   └── grades.csv            # Raw data
-├── scripts/
-│   └── init_database.py      # Pandas script to build SQLite .db
-├── app.py                    # Streamlit frontend & master pipeline
-├── core_logic.ipynb          # Jupyter Notebook used for initial testing/prompt engineering
-├── university_agent.db       # Generated SQLite database (Ignored in .gitignore)
-└── README.md
+- Use an existing `.db` path.
+- Upload a SQLite `.db` file.
+- Upload one or more CSV files, which are converted into a temporary SQLite database.
+- Create the built-in university demo database.
+
+## Run Tests
+
+```bash
+python -m unittest discover -s tests
 ```
 
----
+The tests cover SQL safety checks, schema extraction, CSV ingestion/table naming, read-only execution, and end-to-end fail-closed behavior without calling Gemini.
 
-## 🔬 Critical Reflection & Trade-offs (Academic Evaluation)
+## Current Safety Model
 
-This MVP was intentionally designed with specific constraints to explore the trade-offs of applied AI engineering:
+This is still an MVP, but it now has multiple safety layers:
 
-* **Scalability vs. Context Limits:** The current architecture utilizes **Static Schema Injection**, which is highly efficient and 100% accurate for small-to-medium databases. However, for enterprise databases containing thousands of tables, this approach would exceed the LLM's context window. 
-    * *Future Optimization:* Implementing a **Retrieval-Augmented Generation (RAG)** pipeline using vector embeddings to dynamically retrieve only the mathematically relevant table schemas before generating the SQL.
-* **Flexibility vs. Security:** While GenAI is highly flexible, it introduces the risk of generating destructive code (e.g., hallucinating a `DROP TABLE` command). This project explicitly trades some generative flexibility for strict data security by routing all LLM outputs through a deterministic logic gate before local execution.
-* **Cost vs. Latency:** By choosing `gemini-2.5-flash` over heavier models (like GPT-4 or Gemini 1.5 Pro), the system achieves near-instantaneous translation (low latency) at a fraction of the compute cost, which is the optimal configuration for a user-facing chatbot interface.
+- Prompt instruction requires a single SQLite `SELECT`.
+- `is_safe_query()` rejects non-read SQL and internal SQLite tables.
+- SQLite opens user databases in read-only URI mode.
+- `PRAGMA query_only = ON` adds a database-level read-only guard.
+- SQLite authorizer denies write, DDL, attach/detach, transaction, analyze, reindex, and pragma operations.
+- Query results are capped to avoid accidentally rendering very large result sets.
+
+## Known Trade-offs
+
+- Static schema injection is simple and reliable for small databases, but large enterprise schemas should use schema retrieval before prompting.
+- CSV ingestion prioritizes convenience over full relational modeling; production ingestion should define constraints and types explicitly.
+- LLM-generated SQL can still be invalid or semantically wrong, so production systems should log generated SQL, add feedback loops, and consider SQL parser-based validation.
+- The Streamlit app is designed for local demos, not multi-user hosted deployments.

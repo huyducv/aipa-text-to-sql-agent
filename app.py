@@ -125,10 +125,13 @@ def _render_assistant_turn(msg: dict) -> None:
             return
         if msg.get("kind") == "result":
             if msg.get("error_text"):
-                st.error(msg["error_text"])
-                if msg.get("blocked_sql"):
-                    st.code(msg["blocked_sql"], language="sql")
-            elif msg.get("df") is not None:
+                if msg.get("df") is not None:
+                    st.warning(msg["error_text"])
+                else:
+                    st.error(msg["error_text"])
+                if msg.get("sql"):
+                    st.code(msg["sql"], language="sql")
+            if msg.get("df") is not None:
                 df = msg["df"]
                 if not df.empty:
                     st.dataframe(df, use_container_width=True, hide_index=True)
@@ -142,7 +145,7 @@ def _render_assistant_turn(msg: dict) -> None:
 def main() -> None:
     st.set_page_config(
         page_title="Text-to-SQL",
-        page_icon="◈",
+        page_icon=":material/database:",
         layout="centered",
         initial_sidebar_state="expanded",
     )
@@ -153,17 +156,17 @@ def main() -> None:
 
     with st.sidebar:
         st.markdown("### Text-to-SQL")
-        st.caption("Local SQLite · read-only SQL · Gemini")
+        st.caption("Local SQLite | read-only SQL | Gemini")
 
         key_ok = bool((os.environ.get("GEMINI_API_KEY") or "").strip())
         if key_ok:
-            st.success("API key loaded", icon="✅")
+            st.success("API key loaded", icon=":material/check_circle:")
         else:
-            st.warning("Add `GEMINI_API_KEY` to `.env`", icon="⚠️")
+            st.warning("Add `GEMINI_API_KEY` to `.env`", icon=":material/warning:")
 
         model_name = st.text_input(
             "Model",
-            value="gemini-2.5-flash",
+            value=backend.DEFAULT_MODEL_NAME,
             key="sb_model",
             help="Must match a model your API key can access.",
         )
@@ -188,7 +191,7 @@ def main() -> None:
             if st.session_state.get("sb_path_db") and p.is_file():
                 st.caption(f"Using `{p.name}`")
             elif st.session_state.get("sb_path_db"):
-                st.caption("File not found — adjust path or create demo below.")
+                st.caption("File not found - adjust path or create demo below.")
 
         elif st.session_state.get("sb_source") == "Upload `.db`":
             st.file_uploader("SQLite file", type=["db"], key="sb_upload_db")
@@ -259,9 +262,9 @@ def main() -> None:
 
     chat_disabled = db_path_to_query is None or not key_ok
     placeholder = (
-        "Connect a database in the sidebar…"
+        "Connect a database in the sidebar..."
         if db_path_to_query is None
-        else "Ask anything about your data…"
+        else "Ask anything about your data..."
     )
     prompt = st.chat_input(placeholder, disabled=chat_disabled)
 
@@ -271,18 +274,18 @@ def main() -> None:
         result = backend.ask_database(
             prompt.strip(),
             db_path=db_path_to_query,
-            model_name=(model_name or "").strip() or "gemini-2.5-flash",
+            model_name=(model_name or "").strip() or backend.DEFAULT_MODEL_NAME,
         )
 
         error_text = None
         blocked_sql = None
         df_out: pd.DataFrame | None = None
 
-        if result.columns and result.columns[0] == "error":
-            error_text = result.rows[0][0] if result.rows else "Unknown error"
-            if len(result.columns) > 1 and result.rows:
-                blocked_sql = str(result.rows[0][1])
-        else:
+        if result.error:
+            error_text = result.error
+            blocked_sql = result.sql
+
+        if result.columns:
             df_out = _result_to_dataframe(result)
 
         schema_text: str | None = None
@@ -296,7 +299,7 @@ def main() -> None:
                 "role": "assistant",
                 "kind": "result",
                 "error_text": error_text,
-                "blocked_sql": blocked_sql,
+                "sql": blocked_sql,
                 "df": df_out,
                 "schema_text": schema_text,
             }

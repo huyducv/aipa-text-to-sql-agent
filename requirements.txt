@@ -1,4 +1,4 @@
-pandas
-google-generativeai
-python-dotenv
-streamlit>=1.28.0
+pandas>=2.0,<3.0
+google-generativeai>=0.8,<1.0
+python-dotenv>=1.0,<2.0
+streamlit>=1.28,<2.0
