@@ -10,12 +10,29 @@ The LLM never receives table rows or raw user data.
 
 ## Architecture
 
-1. Schema extraction: Python reads `CREATE TABLE` statements from the local SQLite database.
-2. Context injection: The user question and schema DDL are sent to Gemini.
-3. SQL generation: Gemini returns a single SQLite query.
-4. Safety validation: Python checks that the query is read-only and does not reference SQLite internals.
-5. Read-only execution: SQLite is opened in read-only mode with query-only and authorizer protections.
-6. Result rendering: Streamlit displays the generated result table and optional schema details.
+1. Schema retrieval: Python reads table DDL and selects the most relevant table schemas for the question.
+2. Planning: Gemini returns a short analysis plan with intent, likely tables, columns, and assumptions.
+3. Context injection: The question, schema, optional business glossary, and recent SQL history are sent to Gemini.
+4. SQL generation: Gemini returns a single SQLite query.
+5. Safety validation: Python checks that the query is read-only, avoids SQLite internals, and respects denied-column policy.
+6. Optional approval: The UI can pause before execution so a human can review generated SQL.
+7. Read-only execution: SQLite is opened in read-only mode with query-only and authorizer protections.
+8. Repair loop: If SQLite rejects a generated query, the agent can ask Gemini for a read-only repair and retry.
+9. Result rendering: Streamlit displays the result table, generated SQL, chart, plain-English answer, follow-up suggestions, and schema details.
+10. Audit logging: Query metadata is written locally to `data/audit_log.jsonl`.
+
+## Agent Features
+
+- Analysis plan before SQL generation
+- SQL explanation and answer narrative
+- Automatic chart suggestion for tabular results
+- Follow-up question context from recent successful turns
+- Lightweight schema retrieval for larger databases
+- SQL repair loop for invalid generated SQL
+- Human approval mode before execution
+- Business glossary injection for domain terms
+- Denied-column access control
+- Local JSONL audit log
 
 ## Key Files
 
@@ -72,6 +89,9 @@ In the sidebar you can:
 - Upload a SQLite `.db` file.
 - Upload one or more CSV files, which are converted into a temporary SQLite database.
 - Create the built-in university demo database.
+- Enable human approval mode before execution.
+- Add business glossary rules such as `revenue means SUM(sales.amount)`.
+- Configure denied columns such as `email`, `salary`, or `phone`.
 
 ## Run Tests
 
@@ -79,7 +99,7 @@ In the sidebar you can:
 python -m unittest discover -s tests
 ```
 
-The tests cover SQL safety checks, schema extraction, CSV ingestion/table naming, read-only execution, and end-to-end fail-closed behavior without calling Gemini.
+The tests cover SQL safety checks, schema extraction, CSV ingestion/table naming, read-only execution, chart suggestions, denied-column policy, approval mode, audit logging, and end-to-end fail-closed behavior without calling Gemini.
 
 ## Current Safety Model
 
@@ -91,6 +111,9 @@ This is still an MVP, but it now has multiple safety layers:
 - `PRAGMA query_only = ON` adds a database-level read-only guard.
 - SQLite authorizer denies write, DDL, attach/detach, transaction, analyze, reindex, and pragma operations.
 - Query results are capped to avoid accidentally rendering very large result sets.
+- Denied columns can be blocked before execution.
+- Human approval mode can pause execution for review.
+- Query metadata is recorded in a local audit log.
 
 ## Known Trade-offs
 

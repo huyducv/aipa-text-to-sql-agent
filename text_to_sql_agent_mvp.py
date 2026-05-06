@@ -21,8 +21,10 @@ Notes:
 from __future__ import annotations
 
 import os
+import json
 import re
 import sqlite3
+from datetime import datetime, timezone
 from contextlib import closing
 from dataclasses import dataclass
 from pathlib import Path
@@ -39,6 +41,17 @@ except ModuleNotFoundError:  # pragma: no cover
 DEFAULT_MODEL_NAME = "gemini-2.5-flash"
 DEFAULT_MAX_ROWS = 1_000
 DEFAULT_SQLITE_PROGRESS_STEPS = 100_000
+DEFAULT_AUDIT_LOG_PATH = "data/audit_log.jsonl"
+DEFAULT_DENIED_COLUMNS = {
+    "email",
+    "phone",
+    "address",
+    "ssn",
+    "salary",
+    "password",
+    "token",
+    "secret",
+}
 
 
 def _load_gemini_sdk() -> Any:
@@ -49,6 +62,53 @@ def _load_gemini_sdk() -> Any:
             "google-generativeai is not installed. Run: pip install google-generativeai"
         ) from e
     return genai
+
+
+def _gemini_model(model_name: str, system_instruction: str) -> Any:
+    genai = _load_gemini_sdk()
+    load_env()
+
+    api_key = (os.environ.get("GEMINI_API_KEY") or "").strip()
+    if not api_key:
+        raise ValueError("GEMINI_API_KEY is missing. Set it in `.env` or environment variables.")
+
+    genai.configure(api_key=api_key)
+    return genai.GenerativeModel(model_name, system_instruction=system_instruction)
+
+
+def _generate_text(
+    prompt: str,
+    *,
+    model_name: str,
+    system_instruction: str,
+    temperature: float = 0.0,
+    max_output_tokens: int = 512,
+) -> str:
+    model = _gemini_model(model_name, system_instruction)
+    response = model.generate_content(
+        contents=prompt,
+        generation_config={
+            "temperature": temperature,
+            "max_output_tokens": max_output_tokens,
+        },
+    )
+    return (response.text or "").strip()
+
+
+def _strip_code_fences(text: str) -> str:
+    text = text.strip()
+    text = re.sub(r"^```(?:sql|json)?\s*", "", text, flags=re.IGNORECASE).strip()
+    text = re.sub(r"\s*```$", "", text).strip()
+    return text
+
+
+def _json_from_model_text(text: str) -> dict[str, Any]:
+    cleaned = _strip_code_fences(text)
+    try:
+        parsed = json.loads(cleaned)
+    except json.JSONDecodeError:
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
 
 
 def load_env(env_path: str | None = None) -> None:
@@ -312,6 +372,48 @@ def get_schema(db_path: str) -> str:
     return "\n\n".join(ddl_statements)
 
 
+def get_table_schemas(db_path: str) -> dict[str, str]:
+    """Return table name -> CREATE TABLE statement for user tables."""
+    with closing(sqlite3.connect(db_path)) as conn:
+        rows = conn.execute(
+            """
+            SELECT name, sql
+            FROM sqlite_master
+            WHERE type='table'
+              AND name NOT LIKE 'sqlite_%'
+              AND sql IS NOT NULL
+            ORDER BY name;
+            """
+        ).fetchall()
+
+    return {name: sql.strip().rstrip(";") + ";" for name, sql in rows}
+
+
+def retrieve_relevant_schema(db_path: str, question: str, *, max_tables: int = 6) -> str:
+    """
+    Lightweight schema retrieval for larger databases.
+
+    This is not embedding RAG, but it gives the MVP a scalable baseline by selecting
+    tables whose names/columns overlap the question and falling back to all tables
+    when the schema is small.
+    """
+    table_schemas = get_table_schemas(db_path)
+    if len(table_schemas) <= max_tables:
+        return "\n\n".join(table_schemas.values())
+
+    tokens = set(re.findall(r"[a-zA-Z_][a-zA-Z0-9_]*", question.lower()))
+    scored: list[tuple[int, str, str]] = []
+    for table_name, ddl in table_schemas.items():
+        haystack = set(re.findall(r"[a-zA-Z_][a-zA-Z0-9_]*", f"{table_name} {ddl}".lower()))
+        score = len(tokens & haystack)
+        scored.append((score, table_name, ddl))
+
+    selected = [ddl for score, _name, ddl in sorted(scored, reverse=True) if score > 0][:max_tables]
+    if not selected:
+        selected = [ddl for _score, _name, ddl in sorted(scored)[:max_tables]]
+    return "\n\n".join(selected)
+
+
 SQL_TRANSLATION_SYSTEM_PROMPT = """\
 You are an expert data analyst and SQL translator.
 Your ONLY job is to translate the user's question into a SINGLE SQLite SELECT query.
@@ -329,7 +431,47 @@ SELECT 'UNANSWERABLE_WITH_GIVEN_SCHEMA' AS error;
 """
 
 
-def generate_sql(user_question: str, schema_text: str, *, model_name: str = DEFAULT_MODEL_NAME) -> str:
+SQL_PLANNER_SYSTEM_PROMPT = """\
+You are an expert data analyst preparing a SQL query.
+Return ONLY valid JSON with this exact shape:
+{
+  "intent": "one sentence interpretation of the question",
+  "tables": ["table names you expect to use"],
+  "columns": ["column names you expect to use"],
+  "assumptions": ["short assumptions, or an empty list"]
+}
+Use only the provided schema and business glossary.
+"""
+
+
+SQL_REPAIR_SYSTEM_PROMPT = """\
+You repair SQLite SELECT queries.
+Return ONLY one corrected SQLite SELECT query. No markdown fences or explanation.
+Keep it read-only and use only the provided schema.
+"""
+
+
+ANSWER_SYSTEM_PROMPT = """\
+You are a concise data analyst.
+Explain the SQL and summarize the query result in business-friendly language.
+Do not claim more certainty than the rows support.
+Return ONLY valid JSON:
+{
+  "sql_explanation": "plain English explanation of what the SQL does",
+  "answer": "short insight or result summary",
+  "followups": ["useful next question", "another useful next question"]
+}
+"""
+
+
+def generate_sql(
+    user_question: str,
+    schema_text: str,
+    *,
+    glossary_text: str = "",
+    previous_context: str = "",
+    model_name: str = DEFAULT_MODEL_NAME,
+) -> str:
     """
     Call Gemini (google-generativeai) to generate SQL from a question + schema.
 
@@ -343,45 +485,141 @@ def generate_sql(user_question: str, schema_text: str, *, model_name: str = DEFA
     - Prompt-injection risk exists (e.g., user asks to "DROP TABLE"). We still
       deterministically block dangerous tokens before execution.
     """
-    genai = _load_gemini_sdk()
-
-    # Load from `.env` (gitignored) if present. Safe to call repeatedly.
-    load_env()
-
-    api_key = (os.environ.get("GEMINI_API_KEY") or "").strip()
-    if not api_key:
-        raise ValueError("GEMINI_API_KEY is missing. Set it in `.env` or environment variables.")
-
-    genai.configure(api_key=api_key)
-
-    model = genai.GenerativeModel(
-        model_name,
-        system_instruction=SQL_TRANSLATION_SYSTEM_PROMPT,
-    )
-
     prompt = f"""\
 ### SQLite schema (DDL)
 {schema_text}
 
+### Business glossary
+{glossary_text or "(none)"}
+
+### Previous conversation context
+{previous_context or "(none)"}
+
 ### User question
 {user_question}
 """
-
-    response = model.generate_content(
-        contents=prompt,
-        generation_config={
-            "temperature": 0.0,
-            "max_output_tokens": 512,
-        },
+    sql = _generate_text(
+        prompt,
+        model_name=model_name,
+        system_instruction=SQL_TRANSLATION_SYSTEM_PROMPT,
+        temperature=0.0,
+        max_output_tokens=512,
     )
+    return _strip_code_fences(sql)
 
-    sql = (response.text or "").strip()
 
-    # Defensive cleanup: if the model "helpfully" returns code fences, remove them.
-    sql = re.sub(r"^```(?:sql)?\s*", "", sql, flags=re.IGNORECASE).strip()
-    sql = re.sub(r"\s*```$", "", sql).strip()
+def generate_analysis_plan(
+    user_question: str,
+    schema_text: str,
+    *,
+    glossary_text: str = "",
+    previous_context: str = "",
+    model_name: str = DEFAULT_MODEL_NAME,
+) -> dict[str, Any]:
+    prompt = f"""\
+### SQLite schema (DDL)
+{schema_text}
 
-    return sql
+### Business glossary
+{glossary_text or "(none)"}
+
+### Previous conversation context
+{previous_context or "(none)"}
+
+### User question
+{user_question}
+"""
+    raw = _generate_text(
+        prompt,
+        model_name=model_name,
+        system_instruction=SQL_PLANNER_SYSTEM_PROMPT,
+        temperature=0.0,
+        max_output_tokens=512,
+    )
+    plan = _json_from_model_text(raw)
+    return {
+        "intent": str(plan.get("intent") or user_question),
+        "tables": list(plan.get("tables") or []),
+        "columns": list(plan.get("columns") or []),
+        "assumptions": list(plan.get("assumptions") or []),
+    }
+
+
+def repair_sql(
+    bad_sql: str,
+    error_message: str,
+    user_question: str,
+    schema_text: str,
+    *,
+    glossary_text: str = "",
+    model_name: str = DEFAULT_MODEL_NAME,
+) -> str:
+    prompt = f"""\
+### SQLite schema (DDL)
+{schema_text}
+
+### Business glossary
+{glossary_text or "(none)"}
+
+### User question
+{user_question}
+
+### Failing SQL
+{bad_sql}
+
+### SQLite error
+{error_message}
+"""
+    sql = _generate_text(
+        prompt,
+        model_name=model_name,
+        system_instruction=SQL_REPAIR_SYSTEM_PROMPT,
+        temperature=0.0,
+        max_output_tokens=512,
+    )
+    return _strip_code_fences(sql)
+
+
+def summarize_result(
+    question: str,
+    sql: str,
+    result: "QueryResult",
+    *,
+    model_name: str = DEFAULT_MODEL_NAME,
+) -> dict[str, Any]:
+    sample_rows = [
+        dict(zip(result.columns, row))
+        for row in result.rows[:20]
+    ]
+    prompt = f"""\
+### User question
+{question}
+
+### SQL
+{sql}
+
+### Columns
+{result.columns}
+
+### Sample rows as JSON
+{json.dumps(sample_rows, default=str)}
+
+### Total returned rows shown
+{len(result.rows)}
+"""
+    raw = _generate_text(
+        prompt,
+        model_name=model_name,
+        system_instruction=ANSWER_SYSTEM_PROMPT,
+        temperature=0.2,
+        max_output_tokens=700,
+    )
+    data = _json_from_model_text(raw)
+    return {
+        "sql_explanation": str(data.get("sql_explanation") or ""),
+        "answer": str(data.get("answer") or ""),
+        "followups": list(data.get("followups") or []),
+    }
 
 
 _DANGEROUS_SQL_PATTERN = re.compile(
@@ -430,6 +668,19 @@ def is_safe_query(sql_string: str) -> bool:
     return True
 
 
+def denied_columns_in_query(
+    sql_string: str,
+    denied_columns: set[str] | list[str] | tuple[str, ...] | None = None,
+) -> list[str]:
+    """Return denied column names referenced in the SQL text."""
+    denied = {c.lower().strip() for c in (denied_columns or DEFAULT_DENIED_COLUMNS) if c.strip()}
+    if not denied:
+        return []
+
+    tokens = set(re.findall(r"[a-zA-Z_][a-zA-Z0-9_]*", sql_string.lower()))
+    return sorted(denied & tokens)
+
+
 @dataclass(frozen=True)
 class QueryResult:
     columns: list[str]
@@ -440,6 +691,24 @@ class QueryResult:
     @property
     def ok(self) -> bool:
         return self.error is None
+
+
+@dataclass(frozen=True)
+class AnalystResponse:
+    question: str
+    plan: dict[str, Any]
+    result: QueryResult
+    sql_explanation: str = ""
+    answer: str = ""
+    followups: list[str] | None = None
+    chart: dict[str, str] | None = None
+    repair_attempts: list[dict[str, str]] | None = None
+    schema_text: str = ""
+    audit_path: str | None = None
+
+    @property
+    def ok(self) -> bool:
+        return self.result.ok
 
 
 def _read_only_sqlite_connection(db_path: str) -> sqlite3.Connection:
@@ -521,6 +790,75 @@ def execute_query(
         return result
 
 
+def suggest_chart(columns: list[str], rows: list[tuple[Any, ...]]) -> dict[str, str] | None:
+    """Suggest a simple Streamlit chart configuration for tabular results."""
+    if len(columns) < 2 or not rows:
+        return None
+
+    df = pd.DataFrame(rows, columns=columns)
+    numeric_cols = []
+    for c in columns:
+        converted = pd.to_numeric(df[c], errors="coerce")
+        if pd.api.types.is_numeric_dtype(converted) and converted.notna().any():
+            numeric_cols.append(c)
+    non_numeric_cols = [c for c in columns if c not in numeric_cols]
+
+    if not numeric_cols:
+        return None
+
+    if non_numeric_cols:
+        x_col = non_numeric_cols[0]
+        y_col = numeric_cols[0]
+        return {"type": "bar", "x": x_col, "y": y_col}
+
+    if len(numeric_cols) >= 2:
+        return {"type": "line", "x": numeric_cols[0], "y": numeric_cols[1]}
+
+    return {"type": "bar", "x": columns[0], "y": numeric_cols[0]}
+
+
+def make_previous_context(history: list[dict[str, str]] | None, *, max_turns: int = 3) -> str:
+    if not history:
+        return ""
+
+    lines: list[str] = []
+    for item in history[-max_turns:]:
+        question = item.get("question", "").strip()
+        sql = item.get("sql", "").strip()
+        if question:
+            lines.append(f"Previous question: {question}")
+        if sql:
+            lines.append(f"Previous SQL: {sql}")
+    return "\n".join(lines)
+
+
+def append_audit_log(
+    *,
+    question: str,
+    sql: str | None,
+    result: QueryResult,
+    plan: dict[str, Any] | None = None,
+    db_path: str | None = None,
+    audit_log_path: str = DEFAULT_AUDIT_LOG_PATH,
+) -> str:
+    path = Path(audit_log_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    entry = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "question": question,
+        "sql": sql,
+        "ok": result.ok,
+        "error": result.error,
+        "row_count": len(result.rows),
+        "columns": result.columns,
+        "plan": plan or {},
+        "db_path": db_path,
+    }
+    with path.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(entry, default=str) + "\n")
+    return str(path)
+
+
 # ============================================================
 # Step 3: Master Function
 # ============================================================
@@ -530,6 +868,10 @@ def ask_database(
     *,
     db_path: str = "university_agent.db",
     model_name: str = DEFAULT_MODEL_NAME,
+    glossary_text: str = "",
+    previous_context: str = "",
+    denied_columns: set[str] | list[str] | tuple[str, ...] | None = None,
+    repair_attempts: int = 1,
 ) -> QueryResult:
     """
     End-to-end Text-to-SQL agent wrapper:
@@ -544,8 +886,14 @@ def ask_database(
         raise FileNotFoundError("input database not found")
 
     try:
-        schema_text = get_schema(db_path)
-        sql = generate_sql(question, schema_text, model_name=model_name)
+        schema_text = retrieve_relevant_schema(db_path, question)
+        sql = generate_sql(
+            question,
+            schema_text,
+            glossary_text=glossary_text,
+            previous_context=previous_context,
+            model_name=model_name,
+        )
 
         if "UNANSWERABLE_WITH_GIVEN_SCHEMA" in sql:
             return QueryResult(columns=[], rows=[], sql=sql, error="UNANSWERABLE_WITH_GIVEN_SCHEMA")
@@ -558,12 +906,209 @@ def ask_database(
                 error="BLOCKED_UNSAFE_SQL",
             )
 
-        return execute_query(db_path, sql)
+        denied_refs = denied_columns_in_query(sql, denied_columns)
+        if denied_refs:
+            return QueryResult(
+                columns=[],
+                rows=[],
+                sql=sql,
+                error=f"BLOCKED_DENIED_COLUMNS: {', '.join(denied_refs)}",
+            )
+
+        result = execute_query(db_path, sql)
+        attempts_left = repair_attempts
+        while result.error and result.error.startswith(("OperationalError:", "DatabaseError:")) and attempts_left > 0:
+            repaired_sql = repair_sql(
+                sql,
+                result.error,
+                question,
+                schema_text,
+                glossary_text=glossary_text,
+                model_name=model_name,
+            )
+            if not is_safe_query(repaired_sql):
+                return QueryResult(
+                    columns=[],
+                    rows=[],
+                    sql=repaired_sql,
+                    error="BLOCKED_UNSAFE_REPAIRED_SQL",
+                )
+            denied_refs = denied_columns_in_query(repaired_sql, denied_columns)
+            if denied_refs:
+                return QueryResult(
+                    columns=[],
+                    rows=[],
+                    sql=repaired_sql,
+                    error=f"BLOCKED_DENIED_COLUMNS: {', '.join(denied_refs)}",
+                )
+            sql = repaired_sql
+            result = execute_query(db_path, sql)
+            attempts_left -= 1
+
+        return result
 
     except Exception as e:
         # For an MVP, we return a compact message.
         # In production you'd log full stack traces and implement retries/timeouts.
         return QueryResult(columns=[], rows=[], error=f"{type(e).__name__}: {e}")
+
+
+def analyze_database(
+    question: str,
+    *,
+    db_path: str = "university_agent.db",
+    model_name: str = DEFAULT_MODEL_NAME,
+    glossary_text: str = "",
+    history: list[dict[str, str]] | None = None,
+    denied_columns: set[str] | list[str] | tuple[str, ...] | None = None,
+    require_approval: bool = False,
+    approved_sql: str | None = None,
+    audit_log_path: str = DEFAULT_AUDIT_LOG_PATH,
+    summarize: bool = True,
+) -> AnalystResponse:
+    """
+    Rich analyst workflow:
+    schema retrieval -> plan -> SQL -> optional approval -> execution -> repair ->
+    explanation/answer -> chart suggestion -> audit log.
+    """
+    if not os.path.exists(db_path):
+        raise FileNotFoundError("input database not found")
+
+    schema_text = retrieve_relevant_schema(db_path, question)
+    previous_context = make_previous_context(history)
+    plan: dict[str, Any] = {}
+    repair_log: list[dict[str, str]] = []
+
+    try:
+        plan = generate_analysis_plan(
+            question,
+            schema_text,
+            glossary_text=glossary_text,
+            previous_context=previous_context,
+            model_name=model_name,
+        )
+    except Exception as e:
+        plan = {"intent": question, "tables": [], "columns": [], "assumptions": [f"Plan unavailable: {e}"]}
+
+    try:
+        sql = approved_sql or generate_sql(
+            question,
+            schema_text,
+            glossary_text=glossary_text,
+            previous_context=previous_context,
+            model_name=model_name,
+        )
+
+        if require_approval and approved_sql is None:
+            result = QueryResult(columns=[], rows=[], sql=sql, error="AWAITING_APPROVAL")
+            return AnalystResponse(
+                question=question,
+                plan=plan,
+                result=result,
+                schema_text=schema_text,
+                repair_attempts=repair_log,
+            )
+
+        result = _validate_and_execute_sql(sql, db_path=db_path, denied_columns=denied_columns)
+
+        if result.error and result.error.startswith(("OperationalError:", "DatabaseError:")):
+            repaired_sql = repair_sql(
+                sql,
+                result.error,
+                question,
+                schema_text,
+                glossary_text=glossary_text,
+                model_name=model_name,
+            )
+            repair_log.append({"from": sql, "error": result.error, "to": repaired_sql})
+            repaired_result = _validate_and_execute_sql(
+                repaired_sql,
+                db_path=db_path,
+                denied_columns=denied_columns,
+            )
+            if repaired_result.ok:
+                result = repaired_result
+
+        answer_data = {"sql_explanation": "", "answer": "", "followups": []}
+        if summarize and result.ok and result.sql:
+            try:
+                answer_data = summarize_result(
+                    question,
+                    result.sql,
+                    result,
+                    model_name=model_name,
+                )
+            except Exception as e:
+                answer_data = {
+                    "sql_explanation": "Summary unavailable.",
+                    "answer": f"The query ran, but the narrative summary failed: {e}",
+                    "followups": [],
+                }
+
+        chart = suggest_chart(result.columns, result.rows) if result.columns else None
+        audit_path = append_audit_log(
+            question=question,
+            sql=result.sql,
+            result=result,
+            plan=plan,
+            db_path=db_path,
+            audit_log_path=audit_log_path,
+        )
+        return AnalystResponse(
+            question=question,
+            plan=plan,
+            result=result,
+            sql_explanation=answer_data.get("sql_explanation", ""),
+            answer=answer_data.get("answer", ""),
+            followups=answer_data.get("followups", []),
+            chart=chart,
+            repair_attempts=repair_log,
+            schema_text=schema_text,
+            audit_path=audit_path,
+        )
+
+    except Exception as e:
+        result = QueryResult(columns=[], rows=[], error=f"{type(e).__name__}: {e}")
+        audit_path = append_audit_log(
+            question=question,
+            sql=None,
+            result=result,
+            plan=plan,
+            db_path=db_path,
+            audit_log_path=audit_log_path,
+        )
+        return AnalystResponse(
+            question=question,
+            plan=plan,
+            result=result,
+            followups=[],
+            schema_text=schema_text,
+            audit_path=audit_path,
+        )
+
+
+def _validate_and_execute_sql(
+    sql: str,
+    *,
+    db_path: str,
+    denied_columns: set[str] | list[str] | tuple[str, ...] | None = None,
+) -> QueryResult:
+    if "UNANSWERABLE_WITH_GIVEN_SCHEMA" in sql:
+        return QueryResult(columns=[], rows=[], sql=sql, error="UNANSWERABLE_WITH_GIVEN_SCHEMA")
+    if not is_safe_query(sql):
+        return QueryResult(columns=[], rows=[], sql=sql, error="BLOCKED_UNSAFE_SQL")
+    denied_refs = denied_columns_in_query(sql, denied_columns)
+    if denied_refs:
+        return QueryResult(
+            columns=[],
+            rows=[],
+            sql=sql,
+            error=f"BLOCKED_DENIED_COLUMNS: {', '.join(denied_refs)}",
+        )
+    try:
+        return execute_query(db_path, sql)
+    except Exception as e:
+        return QueryResult(columns=[], rows=[], sql=sql, error=f"{type(e).__name__}: {e}")
 
 
 def ask_from_files(

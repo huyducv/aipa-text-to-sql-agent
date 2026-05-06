@@ -112,6 +112,78 @@ class TextToSqlAgentTests(unittest.TestCase):
             self.assertEqual(result.columns, ["name"])
             self.assertEqual(result.rows, [("Alice",)])
 
+    def test_denied_columns_in_query_detects_policy_violation(self) -> None:
+        blocked = agent.denied_columns_in_query(
+            "SELECT customer_id, email FROM customers",
+            {"email", "salary"},
+        )
+        self.assertEqual(blocked, ["email"])
+
+    def test_suggest_chart_returns_bar_for_category_and_numeric_column(self) -> None:
+        chart = agent.suggest_chart(
+            ["segment", "revenue"],
+            [("SMB", 120.0), ("Enterprise", 550.0)],
+        )
+        self.assertEqual(chart, {"type": "bar", "x": "segment", "y": "revenue"})
+
+    def test_analyze_database_can_pause_for_human_approval(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "test.db"
+            with closing(sqlite3.connect(db_path)) as conn:
+                conn.execute("CREATE TABLE customers (customer_id INTEGER PRIMARY KEY, name TEXT)")
+                conn.commit()
+
+            with patch.object(
+                agent,
+                "generate_analysis_plan",
+                return_value={
+                    "intent": "list",
+                    "tables": ["customers"],
+                    "columns": ["name"],
+                    "assumptions": [],
+                },
+            ), patch.object(agent, "generate_sql", return_value="SELECT name FROM customers"):
+                response = agent.analyze_database(
+                    "list customers",
+                    db_path=str(db_path),
+                    require_approval=True,
+                    summarize=False,
+                )
+
+            self.assertEqual(response.result.error, "AWAITING_APPROVAL")
+            self.assertEqual(response.result.sql, "SELECT name FROM customers")
+
+    def test_analyze_database_executes_and_writes_audit_log(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "test.db"
+            audit_path = Path(tmp) / "audit.jsonl"
+            with closing(sqlite3.connect(db_path)) as conn:
+                conn.execute("CREATE TABLE customers (customer_id INTEGER PRIMARY KEY, name TEXT)")
+                conn.execute("INSERT INTO customers VALUES (1, 'Alice')")
+                conn.commit()
+
+            with patch.object(
+                agent,
+                "generate_analysis_plan",
+                return_value={
+                    "intent": "list",
+                    "tables": ["customers"],
+                    "columns": ["name"],
+                    "assumptions": [],
+                },
+            ), patch.object(agent, "generate_sql", return_value="SELECT name FROM customers"):
+                response = agent.analyze_database(
+                    "list customers",
+                    db_path=str(db_path),
+                    audit_log_path=str(audit_path),
+                    summarize=False,
+                )
+
+            self.assertTrue(response.ok)
+            self.assertEqual(response.result.rows, [("Alice",)])
+            self.assertTrue(audit_path.exists())
+            self.assertIn("\"question\": \"list customers\"", audit_path.read_text(encoding="utf-8"))
+
 
 if __name__ == "__main__":
     unittest.main()

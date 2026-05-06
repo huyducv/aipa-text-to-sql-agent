@@ -77,6 +77,16 @@ def _result_to_dataframe(result: backend.QueryResult) -> pd.DataFrame | None:
     return pd.DataFrame(result.rows, columns=result.columns)
 
 
+def _message_history() -> list[dict[str, str]]:
+    history: list[dict[str, str]] = []
+    for msg in st.session_state.get("messages", []):
+        if msg.get("role") != "assistant" or msg.get("kind") != "result":
+            continue
+        if msg.get("question") and msg.get("sql") and not msg.get("error_text"):
+            history.append({"question": msg["question"], "sql": msg["sql"]})
+    return history
+
+
 def _active_db_path() -> str | None:
     """Resolve DB path from sidebar widgets (with caching for uploads)."""
     source = st.session_state.get("sb_source", "Path on disk")
@@ -124,6 +134,28 @@ def _render_assistant_turn(msg: dict) -> None:
             st.markdown(msg.get("content", ""))
             return
         if msg.get("kind") == "result":
+            if msg.get("plan"):
+                plan = msg["plan"]
+                with st.expander("Analysis plan", expanded=False):
+                    st.markdown(f"**Intent:** {plan.get('intent', '')}")
+                    if plan.get("tables"):
+                        st.markdown(f"**Tables:** {', '.join(map(str, plan['tables']))}")
+                    if plan.get("columns"):
+                        st.markdown(f"**Columns:** {', '.join(map(str, plan['columns']))}")
+                    if plan.get("assumptions"):
+                        st.markdown("**Assumptions:**")
+                        for item in plan["assumptions"]:
+                            st.markdown(f"- {item}")
+
+            if msg.get("answer"):
+                st.markdown(msg["answer"])
+            if msg.get("sql_explanation"):
+                with st.expander("SQL explanation", expanded=False):
+                    st.markdown(msg["sql_explanation"])
+            if msg.get("sql") and not msg.get("error_text"):
+                with st.expander("Generated SQL", expanded=False):
+                    st.code(msg["sql"], language="sql")
+
             if msg.get("error_text"):
                 if msg.get("df") is not None:
                     st.warning(msg["error_text"])
@@ -135,11 +167,55 @@ def _render_assistant_turn(msg: dict) -> None:
                 df = msg["df"]
                 if not df.empty:
                     st.dataframe(df, use_container_width=True, hide_index=True)
+                    if msg.get("chart"):
+                        chart = msg["chart"]
+                        try:
+                            chart_df = df.set_index(chart["x"])
+                            if chart.get("type") == "line":
+                                st.line_chart(chart_df[[chart["y"]]])
+                            else:
+                                st.bar_chart(chart_df[[chart["y"]]])
+                        except Exception:
+                            pass
                 else:
                     st.caption("No rows returned.")
+            if msg.get("followups"):
+                with st.expander("Suggested follow-up questions", expanded=False):
+                    for q in msg["followups"]:
+                        st.markdown(f"- {q}")
+            if msg.get("repair_attempts"):
+                with st.expander("SQL repair attempts", expanded=False):
+                    for attempt in msg["repair_attempts"]:
+                        st.caption(attempt.get("error", ""))
+                        st.code(attempt.get("to", ""), language="sql")
             if msg.get("schema_text"):
                 with st.expander("Schema (DDL)", expanded=False):
                     st.code(msg["schema_text"], language="sql")
+            if msg.get("audit_path"):
+                st.caption(f"Audit log: `{msg['audit_path']}`")
+
+
+def _append_analyst_response(response: backend.AnalystResponse) -> None:
+    result = response.result
+    df_out = _result_to_dataframe(result) if result.columns else None
+    st.session_state.messages.append(
+        {
+            "role": "assistant",
+            "kind": "result",
+            "question": response.question,
+            "plan": response.plan,
+            "answer": response.answer,
+            "sql_explanation": response.sql_explanation,
+            "error_text": result.error,
+            "sql": result.sql,
+            "df": df_out,
+            "chart": response.chart,
+            "followups": response.followups or [],
+            "repair_attempts": response.repair_attempts or [],
+            "schema_text": response.schema_text,
+            "audit_path": response.audit_path,
+        }
+    )
 
 
 def main() -> None:
@@ -153,6 +229,8 @@ def main() -> None:
 
     if "messages" not in st.session_state:
         st.session_state.messages = []
+    if "pending_approval" not in st.session_state:
+        st.session_state.pending_approval = None
 
     with st.sidebar:
         st.markdown("### Text-to-SQL")
@@ -169,6 +247,32 @@ def main() -> None:
             value=backend.DEFAULT_MODEL_NAME,
             key="sb_model",
             help="Must match a model your API key can access.",
+        )
+
+        st.divider()
+        st.markdown("**Agent controls**")
+        approval_mode = st.toggle(
+            "Human approval before execution",
+            value=False,
+            key="sb_approval_mode",
+        )
+        summarize_mode = st.toggle(
+            "Generate answer narrative",
+            value=True,
+            key="sb_summarize_mode",
+        )
+        glossary_text = st.text_area(
+            "Business glossary",
+            value="",
+            key="sb_glossary",
+            height=96,
+            placeholder="Example: revenue means SUM(sales.amount)",
+        )
+        denied_columns_text = st.text_input(
+            "Denied columns",
+            value=", ".join(sorted(backend.DEFAULT_DENIED_COLUMNS)),
+            key="sb_denied_columns",
+            help="Comma-separated columns the agent is not allowed to query.",
         )
 
         st.divider()
@@ -227,6 +331,7 @@ def main() -> None:
         st.divider()
         if st.button("Clear conversation", use_container_width=True):
             st.session_state.messages = []
+            st.session_state.pending_approval = None
             st.rerun()
 
     db_path_to_query: str | None = None
@@ -260,50 +365,76 @@ def main() -> None:
         else:
             _render_assistant_turn(msg)
 
-    chat_disabled = db_path_to_query is None or not key_ok
+    pending = st.session_state.get("pending_approval")
+    if pending:
+        st.info("Review the generated SQL before execution.")
+        st.code(pending["sql"], language="sql")
+        col_run, col_cancel = st.columns(2)
+        with col_run:
+            if st.button("Run approved SQL", type="primary", use_container_width=True):
+                response = backend.analyze_database(
+                    pending["question"],
+                    db_path=pending["db_path"],
+                    model_name=pending["model_name"],
+                    glossary_text=pending["glossary_text"],
+                    history=pending["history"],
+                    denied_columns=pending["denied_columns"],
+                    require_approval=False,
+                    approved_sql=pending["sql"],
+                    summarize=pending["summarize"],
+                )
+                _append_analyst_response(response)
+                st.session_state.pending_approval = None
+                st.rerun()
+        with col_cancel:
+            if st.button("Cancel", use_container_width=True):
+                st.session_state.pending_approval = None
+                st.rerun()
+
+    chat_disabled = db_path_to_query is None or not key_ok or bool(st.session_state.get("pending_approval"))
     placeholder = (
-        "Connect a database in the sidebar..."
-        if db_path_to_query is None
-        else "Ask anything about your data..."
+        "Review the pending SQL above..."
+        if st.session_state.get("pending_approval")
+        else (
+            "Connect a database in the sidebar..."
+            if db_path_to_query is None
+            else "Ask anything about your data..."
+        )
     )
     prompt = st.chat_input(placeholder, disabled=chat_disabled)
 
     if prompt and db_path_to_query and key_ok:
         st.session_state.messages.append({"role": "user", "content": prompt.strip()})
 
-        result = backend.ask_database(
+        denied_columns = {
+            item.strip().lower()
+            for item in (denied_columns_text or "").split(",")
+            if item.strip()
+        }
+        response = backend.analyze_database(
             prompt.strip(),
             db_path=db_path_to_query,
             model_name=(model_name or "").strip() or backend.DEFAULT_MODEL_NAME,
+            glossary_text=glossary_text,
+            history=_message_history(),
+            denied_columns=denied_columns,
+            require_approval=approval_mode,
+            summarize=summarize_mode,
         )
 
-        error_text = None
-        blocked_sql = None
-        df_out: pd.DataFrame | None = None
-
-        if result.error:
-            error_text = result.error
-            blocked_sql = result.sql
-
-        if result.columns:
-            df_out = _result_to_dataframe(result)
-
-        schema_text: str | None = None
-        try:
-            schema_text = backend.get_schema(db_path_to_query)
-        except Exception:
-            pass
-
-        st.session_state.messages.append(
-            {
-                "role": "assistant",
-                "kind": "result",
-                "error_text": error_text,
-                "sql": blocked_sql,
-                "df": df_out,
-                "schema_text": schema_text,
+        if response.result.error == "AWAITING_APPROVAL":
+            st.session_state.pending_approval = {
+                "question": prompt.strip(),
+                "sql": response.result.sql,
+                "db_path": db_path_to_query,
+                "model_name": (model_name or "").strip() or backend.DEFAULT_MODEL_NAME,
+                "glossary_text": glossary_text,
+                "history": _message_history(),
+                "denied_columns": denied_columns,
+                "summarize": summarize_mode,
             }
-        )
+        else:
+            _append_analyst_response(response)
         st.rerun()
 
 
