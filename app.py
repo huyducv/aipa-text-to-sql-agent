@@ -21,7 +21,7 @@ import text_to_sql_agent_mvp as backend
 
 backend.load_env()
 
-_CLAUDE_CSS = """
+_CHAT_CSS = """
 <style>
     .stApp {
         background: #faf9f5;
@@ -146,7 +146,7 @@ def main() -> None:
         layout="centered",
         initial_sidebar_state="expanded",
     )
-    st.markdown(_CLAUDE_CSS, unsafe_allow_html=True)
+    st.markdown(_CHAT_CSS, unsafe_allow_html=True)
 
     if "messages" not in st.session_state:
         st.session_state.messages = []
