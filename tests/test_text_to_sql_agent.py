@@ -66,6 +66,55 @@ class TextToSqlAgentTests(unittest.TestCase):
             self.assertIn("CREATE TABLE customers", schema)
             self.assertNotIn("sqlite_", schema)
 
+    def test_retrieve_schema_chunks_selects_relevant_tables(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "test.db"
+            with closing(sqlite3.connect(db_path)) as conn:
+                conn.execute("CREATE TABLE customers (customer_id INTEGER PRIMARY KEY, name TEXT)")
+                conn.execute(
+                    "CREATE TABLE sales (sale_id INTEGER PRIMARY KEY, customer_id INTEGER, amount REAL, "
+                    "FOREIGN KEY(customer_id) REFERENCES customers(customer_id))"
+                )
+                conn.execute("CREATE TABLE courses (course_id INTEGER PRIMARY KEY, course_name TEXT)")
+                conn.commit()
+
+            chunks = agent.retrieve_schema_chunks(
+                str(db_path),
+                "total sales amount by customer",
+                top_k=1,
+            )
+            names = {chunk.table_name for chunk in chunks}
+
+            self.assertIn("sales", names)
+            self.assertIn("customers", names)
+            self.assertNotIn("courses", names)
+
+    def test_ask_database_uses_retrieved_schema_by_default(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "test.db"
+            with closing(sqlite3.connect(db_path)) as conn:
+                conn.execute("CREATE TABLE customers (customer_id INTEGER PRIMARY KEY, name TEXT)")
+                conn.execute("CREATE TABLE courses (course_id INTEGER PRIMARY KEY, course_name TEXT)")
+                conn.execute("INSERT INTO customers VALUES (1, 'Alice')")
+                conn.commit()
+
+            captured_schema: dict[str, str] = {}
+
+            def fake_generate_sql(_question: str, schema_text: str, **_kwargs: object) -> str:
+                captured_schema["text"] = schema_text
+                return "SELECT name FROM customers"
+
+            with patch.object(agent, "generate_sql", side_effect=fake_generate_sql):
+                result = agent.ask_database(
+                    "list customer names",
+                    db_path=str(db_path),
+                    rag_top_k=1,
+                )
+
+            self.assertTrue(result.ok)
+            self.assertIn("CREATE TABLE customers", captured_schema["text"])
+            self.assertNotIn("CREATE TABLE courses", captured_schema["text"])
+
     def test_execute_query_caps_rows_and_reports_truncation(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             db_path = Path(tmp) / "test.db"

@@ -4,7 +4,7 @@ Text-to-SQL Enterprise Agent (MVP)
 
 This module contains the core backend pipeline for a local, safe Text-to-SQL agent:
 - Local SQLite only
-- No RAG: static schema injection (extract CREATE TABLE DDL and inject into prompt)
+- Schema RAG: retrieve the most relevant table DDL before prompting
 - Strict separation: LLM generates SQL text only; Python executes
 - Safety first: deterministic gate blocks data-modifying SQL keywords
 
@@ -41,6 +41,15 @@ DEFAULT_OLLAMA_MODEL = "gemma3"
 DEFAULT_PROVIDER = "gemini"
 DEFAULT_MAX_ROWS = 1_000
 DEFAULT_SQLITE_PROGRESS_STEPS = 100_000
+DEFAULT_RAG_TOP_K = 6
+DEFAULT_RAG_NEIGHBORS = 1
+
+
+_STOPWORDS = {
+    "a", "an", "and", "are", "as", "at", "by", "for", "from", "how", "in",
+    "is", "it", "me", "of", "on", "or", "per", "show", "the", "to", "total",
+    "what", "which", "with",
+}
 
 
 def _load_gemini_sdk() -> Any:
@@ -346,6 +355,137 @@ def get_schema(db_path: str) -> str:
     return "\n\n".join(ddl_statements)
 
 
+def _tokenize_for_rag(text: str) -> list[str]:
+    tokens = re.findall(r"[a-zA-Z_][a-zA-Z0-9_]*", text.lower())
+    expanded: list[str] = []
+    for token in tokens:
+        if token not in _STOPWORDS:
+            expanded.append(token)
+        for part in token.split("_"):
+            if part and part not in _STOPWORDS:
+                expanded.append(part)
+    return expanded
+
+
+def get_schema_chunks(db_path: str) -> list[SchemaChunk]:
+    """
+    Build table-level schema chunks for retrieval.
+
+    Each chunk includes the table DDL, column names, and foreign-key neighbors.
+    No row data is read or embedded.
+    """
+    with closing(sqlite3.connect(db_path)) as conn:
+        table_rows = conn.execute(
+            """
+            SELECT name, sql
+            FROM sqlite_master
+            WHERE type='table'
+              AND name NOT LIKE 'sqlite_%'
+              AND sql IS NOT NULL
+            ORDER BY name;
+            """
+        ).fetchall()
+
+        chunks: list[SchemaChunk] = []
+        for table_name, ddl in table_rows:
+            columns = [
+                row[1]
+                for row in conn.execute(f'PRAGMA table_info("{table_name}")').fetchall()
+            ]
+            foreign_tables = sorted(
+                {
+                    row[2]
+                    for row in conn.execute(f'PRAGMA foreign_key_list("{table_name}")').fetchall()
+                    if row[2]
+                }
+            )
+            search_text = " ".join([table_name, ddl or "", *columns, *foreign_tables])
+            chunks.append(
+                SchemaChunk(
+                    table_name=table_name,
+                    ddl=ddl.strip().rstrip(";") + ";",
+                    columns=columns,
+                    foreign_tables=foreign_tables,
+                    search_text=search_text,
+                )
+            )
+    return chunks
+
+
+def retrieve_schema_chunks(
+    db_path: str,
+    question: str,
+    *,
+    top_k: int = DEFAULT_RAG_TOP_K,
+    include_neighbors: int = DEFAULT_RAG_NEIGHBORS,
+) -> list[SchemaChunk]:
+    """
+    Retrieve the most relevant schema chunks for a natural-language question.
+
+    This is a lexical RAG baseline: exact token overlap is weighted higher for
+    table/column names than generic DDL text. It is deterministic, local, and
+    enough to demonstrate the RAG architecture before adding embeddings.
+    """
+    chunks = get_schema_chunks(db_path)
+    if not chunks:
+        return []
+    if top_k <= 0 or len(chunks) <= top_k:
+        return chunks
+
+    question_tokens = set(_tokenize_for_rag(question))
+    scored: list[SchemaChunk] = []
+    for chunk in chunks:
+        table_tokens = set(_tokenize_for_rag(chunk.table_name))
+        column_tokens = set(_tokenize_for_rag(" ".join(chunk.columns)))
+        text_tokens = set(_tokenize_for_rag(chunk.search_text))
+
+        score = 0.0
+        score += 6.0 * len(question_tokens & table_tokens)
+        score += 3.0 * len(question_tokens & column_tokens)
+        score += 1.0 * len(question_tokens & text_tokens)
+        scored.append(
+            SchemaChunk(
+                table_name=chunk.table_name,
+                ddl=chunk.ddl,
+                columns=chunk.columns,
+                foreign_tables=chunk.foreign_tables,
+                search_text=chunk.search_text,
+                score=score,
+            )
+        )
+
+    selected = sorted(scored, key=lambda c: (-c.score, c.table_name))[:top_k]
+    if all(chunk.score == 0 for chunk in selected):
+        selected = sorted(scored, key=lambda c: c.table_name)[:top_k]
+
+    selected_names = {chunk.table_name for chunk in selected}
+    if include_neighbors > 0:
+        chunk_by_name = {chunk.table_name: chunk for chunk in scored}
+        frontier = list(selected)
+        for _ in range(include_neighbors):
+            next_frontier: list[SchemaChunk] = []
+            for chunk in frontier:
+                for neighbor in chunk.foreign_tables:
+                    if neighbor in chunk_by_name and neighbor not in selected_names:
+                        selected_names.add(neighbor)
+                        next_frontier.append(chunk_by_name[neighbor])
+            selected.extend(next_frontier)
+            frontier = next_frontier
+
+    return sorted(selected, key=lambda c: c.table_name)
+
+
+def retrieve_relevant_schema(
+    db_path: str,
+    question: str,
+    *,
+    top_k: int = DEFAULT_RAG_TOP_K,
+) -> str:
+    """Return retrieved DDL snippets for the prompt."""
+    chunks = retrieve_schema_chunks(db_path, question, top_k=top_k)
+    return "\n\n".join(chunk.ddl for chunk in chunks)
+
+
 SQL_TRANSLATION_SYSTEM_PROMPT = """\
 You are an expert data analyst and SQL translator.
 Your ONLY job is to translate the user's question into a SINGLE SQLite SELECT query.
@@ -523,6 +663,16 @@ class QueryResult:
         return self.error is None
 
 
+@dataclass(frozen=True)
+class SchemaChunk:
+    table_name: str
+    ddl: str
+    columns: list[str]
+    foreign_tables: list[str]
+    search_text: str
+    score: float = 0.0
+
+
 def _read_only_sqlite_connection(db_path: str) -> sqlite3.Connection:
     resolved = Path(db_path).resolve()
     uri = f"{resolved.as_uri()}?mode=ro"
@@ -609,10 +759,12 @@ def ask_database(
     db_path: str = "university_agent.db",
     model_name: str = DEFAULT_MODEL_NAME,
     provider: str | None = None,
+    use_rag: bool = True,
+    rag_top_k: int = DEFAULT_RAG_TOP_K,
 ) -> QueryResult:
     """
     End-to-end Text-to-SQL agent wrapper:
-    schema extraction -> LLM SQL generation -> safety validation -> execution.
+    schema retrieval -> LLM SQL generation -> safety validation -> execution.
 
     Error handling principles:
     - Fail closed: if unsafe or invalid SQL, do not execute.
@@ -623,7 +775,11 @@ def ask_database(
         raise FileNotFoundError("input database not found")
 
     try:
-        schema_text = get_schema(db_path)
+        schema_text = (
+            retrieve_relevant_schema(db_path, question, top_k=rag_top_k)
+            if use_rag
+            else get_schema(db_path)
+        )
         sql = generate_sql(question, schema_text, model_name=model_name, provider=provider)
 
         if "UNANSWERABLE_WITH_GIVEN_SCHEMA" in sql:
@@ -652,6 +808,8 @@ def ask_from_files(
     output_db_path: str = "dynamic_agent.db",
     model_name: str = DEFAULT_MODEL_NAME,
     provider: str | None = None,
+    use_rag: bool = True,
+    rag_top_k: int = DEFAULT_RAG_TOP_K,
 ) -> QueryResult:
     """
     Auto-select workflow:
@@ -669,11 +827,25 @@ def ask_from_files(
     if exts == {".db"}:
         if len(paths) != 1:
             raise ValueError("Provide exactly one .db file path")
-        return ask_database(question, db_path=paths[0], model_name=model_name, provider=provider)
+        return ask_database(
+            question,
+            db_path=paths[0],
+            model_name=model_name,
+            provider=provider,
+            use_rag=use_rag,
+            rag_top_k=rag_top_k,
+        )
 
     if exts == {".csv"}:
         db_path = ingest_csvs_to_db(paths, output_db_path=output_db_path)
-        return ask_database(question, db_path=db_path, model_name=model_name, provider=provider)
+        return ask_database(
+            question,
+            db_path=db_path,
+            model_name=model_name,
+            provider=provider,
+            use_rag=use_rag,
+            rag_top_k=rag_top_k,
+        )
 
     raise ValueError(f"Unsupported or mixed file types: {sorted(exts)}")
 

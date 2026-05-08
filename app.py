@@ -180,6 +180,21 @@ def main() -> None:
         else:
             st.info("Using local Ollama. Make sure Ollama is running.")
 
+        use_rag = st.toggle(
+            "Use schema RAG",
+            value=True,
+            key="sb_use_rag",
+            help="Retrieve only the most relevant table schemas before prompting.",
+        )
+        rag_top_k = st.slider(
+            "Schema tables to retrieve",
+            min_value=1,
+            max_value=12,
+            value=backend.DEFAULT_RAG_TOP_K,
+            key="sb_rag_top_k",
+            disabled=not use_rag,
+        )
+
         st.divider()
         st.markdown("**Database**")
 
@@ -287,6 +302,8 @@ def main() -> None:
                 backend.DEFAULT_MODEL_NAME if provider == "gemini" else backend.DEFAULT_OLLAMA_MODEL
             ),
             provider=provider,
+            use_rag=use_rag,
+            rag_top_k=rag_top_k,
         )
 
         error_text = None
@@ -302,7 +319,15 @@ def main() -> None:
 
         schema_text: str | None = None
         try:
-            schema_text = backend.get_schema(db_path_to_query)
+            schema_text = (
+                backend.retrieve_relevant_schema(
+                    db_path_to_query,
+                    prompt.strip(),
+                    top_k=rag_top_k,
+                )
+                if use_rag
+                else backend.get_schema(db_path_to_query)
+            )
         except Exception:
             pass
 

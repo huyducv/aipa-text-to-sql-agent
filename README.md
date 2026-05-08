@@ -14,11 +14,33 @@ The current branch supports two LLM backends:
 ## Architecture
 
 1. Python extracts SQLite `CREATE TABLE` statements.
-2. The user question and schema are sent to the selected LLM.
-3. The LLM returns one SQLite `SELECT` query.
-4. Python validates that the SQL is read-only and avoids SQLite internals.
-5. SQLite executes the query locally in read-only mode.
-6. Streamlit renders the result table.
+2. Schema RAG builds table-level chunks from DDL, columns, and foreign-key relationships.
+3. The most relevant schema chunks are retrieved for the user question.
+4. The user question and retrieved schema are sent to the selected LLM.
+5. The LLM returns one SQLite `SELECT` query.
+6. Python validates that the SQL is read-only and avoids SQLite internals.
+7. SQLite executes the query locally in read-only mode.
+8. Streamlit renders the result table.
+
+## Schema RAG
+
+The project now includes a local schema RAG layer. It does not read or embed row data. It only indexes:
+
+- table names
+- column names
+- `CREATE TABLE` DDL
+- foreign-key neighbor tables
+
+At question time, the backend scores schema chunks against the user's words, retrieves the top tables, includes directly related foreign-key tables, and sends only those DDL snippets to the LLM.
+
+This improves:
+
+- prompt size for larger databases
+- latency and cost
+- table selection accuracy
+- privacy, because only metadata is retrieved
+
+In the Streamlit sidebar you can toggle schema RAG and adjust how many tables are retrieved.
 
 ## Safety Model
 
@@ -80,6 +102,8 @@ In the sidebar you can:
 
 - choose Gemini or Ollama
 - set the model name
+- enable or disable schema RAG
+- tune how many schema tables are retrieved
 - use an existing `.db` path
 - upload a SQLite `.db`
 - upload one or more CSV files
@@ -99,4 +123,4 @@ python -m unittest discover -s tests
 
 ## Notes
 
-This is still an MVP. The most important next improvements are SQL parser-based validation, stronger query repair, richer charting, and schema retrieval for very large databases.
+This is still an MVP. The most important next improvements are embedding-based schema retrieval, SQL parser-based validation, stronger query repair, and richer charting.
