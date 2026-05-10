@@ -1,4 +1,4 @@
-"""
+﻿"""
 Text-to-SQL Enterprise Agent (MVP)
 ========================================
 
@@ -29,6 +29,9 @@ from contextlib import closing
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+from langchain_community.chat_models import ChatOllama
+from langchain_core.messages import HumanMessage, SystemMessage
 
 import pandas as pd
 
@@ -640,17 +643,11 @@ def generate_sql(
     provider: str | None = None,
 ) -> str:
     """
-    Call Gemini (google-generativeai) to generate SQL from a question + schema.
+    Call an LLM to generate SQL from a question + schema.
 
     Strict separation guarantee:
     - The LLM sees ONLY the schema DDL (no row data).
     - The LLM returns ONLY SQL text; Python decides if/when to execute.
-
-    Trade-offs / reporting notes:
-    - LLM output can be invalid SQL, or reference non-existent columns.
-      We handle this with execution-time error handling and safety checks.
-    - Prompt-injection risk exists (e.g., user asks to "DROP TABLE"). We still
-      deterministically block dangerous tokens before execution.
     """
     load_env()
     selected_provider = (provider or os.environ.get("TEXT_TO_SQL_PROVIDER") or DEFAULT_PROVIDER).strip().lower()
@@ -671,7 +668,7 @@ def generate_sql(
 
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel(
-            model_name,
+            model_name or DEFAULT_MODEL_NAME,
             system_instruction=SQL_TRANSLATION_SYSTEM_PROMPT,
         )
         response = model.generate_content(
@@ -681,7 +678,7 @@ def generate_sql(
                 "max_output_tokens": 512,
             },
         )
-        return _strip_code_fences(response.text or "")
+        return _extract_sql_from_text(str(response.text or ""))
 
     if selected_provider == "ollama":
         ChatOllama, HumanMessage, SystemMessage = _load_ollama_sdk()
@@ -929,6 +926,48 @@ def ask_database(
         # For an MVP, we return a compact message.
         # In production you'd log full stack traces and implement retries/timeouts.
         return QueryResult(columns=[], rows=[], error=f"{type(e).__name__}: {e}")
+
+
+def ask_database_with_sql(
+    question: str,
+    *,
+    db_path: str = "university_agent.db",
+    model_name: str = DEFAULT_MODEL_NAME,
+    provider: str | None = None,
+    use_rag: bool = True,
+    rag_top_k: int = DEFAULT_RAG_TOP_K,
+) -> tuple[str, QueryResult]:
+    """
+    Same as `ask_database`, but also returns the generated SQL string for UI display.
+
+    Returns:
+      (sql_text, QueryResult)
+    """
+    if not os.path.exists(db_path):
+        raise FileNotFoundError("input database not found")
+
+    schema_text = (
+        retrieve_relevant_schema(db_path, question, top_k=rag_top_k)
+        if use_rag
+        else get_schema(db_path)
+    )
+    sql = generate_sql(question, schema_text, model_name=model_name, provider=provider)
+
+    if "UNANSWERABLE_WITH_GIVEN_SCHEMA" in sql:
+        return sql, QueryResult(columns=[], rows=[], sql=sql, error="UNANSWERABLE_WITH_GIVEN_SCHEMA")
+
+    if not is_safe_query(sql):
+        return sql, QueryResult(
+            columns=[],
+            rows=[],
+            sql=sql,
+            error="BLOCKED_UNSAFE_SQL",
+        )
+
+    try:
+        return sql, execute_query(db_path, sql)
+    except Exception as e:
+        return sql, QueryResult(columns=[], rows=[], sql=sql, error=f"{type(e).__name__}: {e}")
 
 
 def ask_from_files(

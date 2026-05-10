@@ -1,4 +1,4 @@
-"""
+﻿"""
 Streamlit UI for the Text-to-SQL agent (`text_to_sql_agent_mvp`).
 
 Run locally:
@@ -9,6 +9,7 @@ Ensure `GEMINI_API_KEY` is set in `.env` in the project root (or in your environ
 
 from __future__ import annotations
 
+import html
 import os
 import tempfile
 import uuid
@@ -49,6 +50,45 @@ _CHAT_CSS = """
         border-radius: 1rem !important;
         border: 1px solid #e3e0d8 !important;
         background: #fff !important;
+        padding-left: 1rem !important;
+    }
+
+    /* Right-align user messages (content we wrap in .chat-user-wrap) */
+    .chat-user-wrap {
+        display: flex;
+        justify-content: flex-end;
+        width: 100%;
+    }
+    .chat-user-row {
+        display: flex;
+        justify-content: flex-end;
+        align-items: flex-start;
+        gap: 0.55rem;
+        width: 100%;
+    }
+    .chat-user-bubble {
+        max-width: min(42rem, 85%);
+        background: #e9f2ff;
+        border: 1px solid #d7e6ff;
+        padding: 0.55rem 0.8rem;
+        border-radius: 1rem;
+        margin-left: auto;
+        word-wrap: break-word;
+        white-space: pre-wrap;
+    }
+    .chat-user-avatar {
+        width: 2rem;
+        height: 2rem;
+        border-radius: 999px;
+        background: #ff4b4b;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #ffffff;
+        font-weight: 700;
+        font-size: 0.95rem;
+        flex: 0 0 auto;
+        border: 1px solid rgba(0,0,0,0.06);
     }
 </style>
 """
@@ -137,6 +177,9 @@ def _render_assistant_turn(msg: dict) -> None:
                     st.dataframe(df, use_container_width=True, hide_index=True)
                 else:
                     st.caption("No rows returned.")
+            if msg.get("sql_text"):
+                with st.expander("Generated SQL", expanded=False):
+                    st.code(msg["sql_text"], language="sql")
             if msg.get("schema_text"):
                 with st.expander("Schema (DDL)", expanded=False):
                     st.code(msg["schema_text"], language="sql")
@@ -197,6 +240,7 @@ def main() -> None:
             key="sb_rag_top_k",
             disabled=not use_rag,
         )
+
 
         st.divider()
         st.markdown("**Database**")
@@ -282,8 +326,16 @@ def main() -> None:
 
     for msg in st.session_state.messages:
         if msg["role"] == "user":
-            with st.chat_message("user"):
-                st.markdown(msg["content"])
+            safe = html.escape(str(msg.get("content", "")))
+            st.markdown(
+                "<div class='chat-user-wrap'>"
+                "<div class='chat-user-row'>"
+                f"<div class='chat-user-bubble'>{safe}</div>"
+                "<div class='chat-user-avatar'>ðŸ™‚</div>"
+                "</div>"
+                "</div>",
+                unsafe_allow_html=True,
+            )
         else:
             _render_assistant_turn(msg)
 
@@ -298,7 +350,7 @@ def main() -> None:
     if prompt and db_path_to_query and key_ok:
         st.session_state.messages.append({"role": "user", "content": prompt.strip()})
 
-        result = backend.ask_database(
+        sql_text, result = backend.ask_database_with_sql(
             prompt.strip(),
             db_path=db_path_to_query,
             model_name=(model_name or "").strip() or (
@@ -343,6 +395,7 @@ def main() -> None:
                 "error_text": error_text,
                 "blocked_sql": blocked_sql,
                 "df": df_out,
+                "sql_text": sql_text,
                 "schema_text": schema_text,
                 "rag_report": rag_report,
             }
