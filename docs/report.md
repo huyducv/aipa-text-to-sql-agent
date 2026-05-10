@@ -51,6 +51,8 @@ Relevant literature to cite:
 
 The workflow begins with data preparation. SQLite databases are used directly, while uploaded CSV files are normalised into SQLite tables with sanitised table names. The system extracts `CREATE TABLE` statements and excludes internal SQLite metadata tables.
 
+The implementation is organised as a backend package (`text_to_sql_agent/`) with separate modules for ingestion, schema extraction, hybrid RAG, LLM generation, SQL safety, read-only execution, and orchestration. The legacy `text_to_sql_agent_mvp.py` file remains as a compatibility wrapper so notebooks, tests, and the Streamlit app keep a stable import path.
+
 The model workflow is:
 
 1. User selects Gemini or Ollama and connects a database.

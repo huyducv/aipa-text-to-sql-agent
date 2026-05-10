@@ -65,7 +65,19 @@ In the Streamlit sidebar you can toggle schema RAG and adjust how many tables ar
 ```text
 .
 |-- app.py                         # Streamlit frontend
-|-- text_to_sql_agent_mvp.py        # Backend pipeline
+|-- text_to_sql_agent_mvp.py        # Backward-compatible backend wrapper
+|-- text_to_sql_agent/              # Refactored backend package
+|   |-- config.py                   # Defaults, model names, RAG constants
+|   |-- data_setup.py               # Demo university database generation
+|   |-- env.py                      # Environment loading
+|   |-- execution.py                # Read-only SQLite execution
+|   |-- ingestion.py                # CSV ingestion
+|   |-- llm.py                      # Gemini/Ollama SQL generation
+|   |-- pipeline.py                 # End-to-end ask_* workflows
+|   |-- rag.py                      # Hybrid schema RAG
+|   |-- safety.py                   # SQL safety checks
+|   |-- schema.py                   # Schema extraction/chunking
+|   `-- types.py                    # Shared dataclasses
 |-- requirements.txt                # Dependencies
 |-- evaluation/
 |   `-- cases.json                  # Text-to-SQL benchmark cases
