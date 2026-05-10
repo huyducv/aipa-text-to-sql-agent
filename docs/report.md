@@ -1,9 +1,15 @@
 # AT3 Report Draft: Enterprise Text-to-SQL Agent
 
 Group Number: `TODO`  
-Group Members and Student IDs: `TODO`  
+Group Members and Student IDs:
+
+- Huy Duc Vu - 25728181
+- Ngoc Bao Tran Nguyen - 25611551
+- Manh Tuan Nguyen - 25739083
+- Nguyen Nghia Doan Dang - 26201968
+
 GitHub Repository: `https://github.com/tuannm3812/aipa-text-to-sql-agent`  
-Live Demo: `TODO Streamlit URL`
+Live Demo: `https://aipa-text-to-sql-agent.streamlit.app/`
 
 ## Executive Summary
 

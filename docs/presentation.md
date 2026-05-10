@@ -6,7 +6,14 @@ Target: 7 minutes plus 1 minute Q&A.
 
 Enterprise Text-to-SQL Agent  
 Group Number: `TODO`  
-Members and Student IDs: `TODO`
+Members:
+
+- Huy Duc Vu - 25728181
+- Ngoc Bao Tran Nguyen - 25611551
+- Manh Tuan Nguyen - 25739083
+- Nguyen Nghia Doan Dang - 26201968
+
+Live demo: `https://aipa-text-to-sql-agent.streamlit.app/`
 
 Speaker note: Introduce the problem: users need database answers but often cannot write SQL.
 
