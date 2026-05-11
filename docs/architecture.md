@@ -15,6 +15,8 @@ The file has two pages:
 
 Several dashed boxes are logo placeholders. In diagrams.net, select each placeholder and replace it with the official or preferred icon for Streamlit, Gemini, Ollama, SQLite, Python, sqlglot, or Streamlit Cloud.
 
+The diagram is styled with Google Sans. If the font is not available on the export machine, diagrams.net will fall back to the closest installed sans-serif font; the layout should still remain readable.
+
 The presentation page uses a layered layout:
 
 - User and interface layer
