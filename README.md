@@ -206,6 +206,49 @@ python scripts/evaluate_text_to_sql.py --mode llm --provider gemini --model gemi
 python scripts/evaluate_text_to_sql.py --mode llm --provider gemini --model gemini-2.5-flash --max-cases 3 --max-retries 2 --retry-base-seconds 30 --resume
 ```
 
+## Local Model Evaluation Results
+
+Local Ollama evaluation was run against the 12-case benchmark in `evaluation/cases.json`.
+The gold SQL baseline passed all cases, confirming that the benchmark queries and SQLite databases are valid:
+
+```bash
+python3 scripts/evaluate_text_to_sql.py --mode gold
+```
+
+| Baseline | Cases | Exact Result Match |
+|---|---:|---:|
+| Gold SQL | 12 | 12/12 |
+
+The same benchmark was then run with local Ollama models:
+
+```bash
+python3 scripts/evaluate_text_to_sql.py --mode llm --provider ollama --model llama3:latest --resume
+python3 scripts/evaluate_text_to_sql.py --mode llm --provider ollama --model gemma4:latest --resume
+```
+
+| Model | Safe SQL | Execution Success | Value Match | Row Match | Exact Result Match | Avg Latency |
+|---|---:|---:|---:|---:|---:|---:|
+| `llama3:latest` | 12/12 | 12/12 | 8/12 | 5/12 | 0/12 | 3.78s |
+| `gemma4:latest` | 10/12 | 10/12 | 8/12 | 3/12 | 0/12 | 5.65s |
+
+Manual inspection showed that `exact_result_match` is intentionally strict. It requires matching result values, row order, and column names. Many exact-match failures were still analytically correct because the generated SQL returned the same values with different aliases, missing `ROUND()` formatting, or a different row order.
+
+For `llama3:latest`, 8 of 12 cases were value-correct. The 4 incorrect cases were:
+
+- `retail_revenue_by_region`: ignored `discount_pct`, so completed revenue was too high.
+- `retail_revenue_by_category`: ignored `discount_pct`, so completed revenue was too high.
+- `retail_support_satisfaction_by_priority`: returned one overall average instead of grouping by priority.
+- `healthcare_treatment_cost_by_city`: used an incorrect join/subquery and produced wrong city averages.
+
+For `gemma4:latest`, 8 of 12 cases were value-correct. The 4 incorrect cases were:
+
+- `university_average_score_by_course`: omitted `course_code`, changing the expected result shape.
+- `retail_revenue_by_region`: generated an empty or blocked query.
+- `retail_revenue_by_category`: generated truncated SQL that was blocked by the safety layer.
+- `retail_support_satisfaction_by_priority`: grouped by priority but did not return the priority column.
+
+Based on this run, `llama3:latest` is the stronger local default for the project: both models reached 8/12 value correctness, but Llama 3 produced safe and executable SQL for every case and had lower average latency. Gemma 4 had two blocked SQL outputs on harder retail revenue questions.
+
 ## Streamlit Community Cloud
 
 For hosted deployment, use:
