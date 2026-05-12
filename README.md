@@ -21,7 +21,7 @@ The app lets a user connect a local SQLite database or upload CSV files, ask a p
 
 The current branch supports two LLM backends:
 
-- Gemini API, using `GEMINI_API_KEY`
+- Gemini API, using `GEMINI_API_KEY` or a multi-key failover set
 - Local Ollama, using a model such as `gemma3`
 
 ## Architecture
@@ -105,6 +105,7 @@ In the Streamlit sidebar you can toggle schema RAG and adjust how many tables ar
 |   |-- execution.py                # Read-only SQLite execution
 |   |-- ingestion.py                # CSV ingestion
 |   |-- llm.py                      # Gemini/Ollama SQL generation
+|   |-- gemnini_manager.py          # Gemini API key loading and quota failover
 |   |-- pipeline.py                 # End-to-end ask_* workflows
 |   |-- rag.py                      # Hybrid schema RAG
 |   |-- safety.py                   # SQL safety checks
@@ -142,6 +143,24 @@ For Gemini, create `.env` in the project root:
 GEMINI_API_KEY=your_api_key_here
 TEXT_TO_SQL_PROVIDER=gemini
 ```
+
+For Gemini quota failover, provide multiple keys either as a comma-separated list:
+
+```bash
+GOOGLE_API_KEYS=key_1,key_2,key_3
+TEXT_TO_SQL_PROVIDER=gemini
+```
+
+or as indexed variables:
+
+```bash
+GOOGLE_API_KEY=key_0
+GOOGLE_API_KEY_1=key_1
+GOOGLE_API_KEY_2=key_2
+TEXT_TO_SQL_PROVIDER=gemini
+```
+
+The Gemini manager rotates to the next key on `429` quota errors and `492` errors. On `503`, it retries the current key once before advancing. This runs in the shared LLM layer, so the Streamlit app, notebooks, and evaluation script all use the same failover behavior.
 
 For local Ollama:
 
@@ -206,9 +225,9 @@ python scripts/evaluate_text_to_sql.py --mode llm --provider gemini --model gemi
 python scripts/evaluate_text_to_sql.py --mode llm --provider gemini --model gemini-2.5-flash --max-cases 3 --max-retries 2 --retry-base-seconds 30 --resume
 ```
 
-## Local Model Evaluation Results
+## Evaluation Results
 
-Local Ollama evaluation was run against the 12-case benchmark in `evaluation/cases.json`.
+Evaluation was run against the 12-case benchmark in `evaluation/cases.json`.
 The gold SQL baseline passed all cases, confirming that the benchmark queries and SQLite databases are valid:
 
 ```bash
@@ -219,7 +238,19 @@ python3 scripts/evaluate_text_to_sql.py --mode gold
 |---|---:|---:|
 | Gold SQL | 12 | 12/12 |
 
-The same benchmark was then run with local Ollama models:
+Gemini was evaluated with `gemini-2.5-flash` and 10 configured API keys for quota failover:
+
+```bash
+python3 scripts/evaluate_text_to_sql.py --mode llm --provider gemini --model gemini-2.5-flash --max-cases 12 --max-retries 1 --retry-base-seconds 5
+```
+
+| Model | Safe SQL | Execution Success | Value Match | Row Match | Exact Result Match | Avg Latency |
+|---|---:|---:|---:|---:|---:|---:|
+| `gemini-2.5-flash` | 12/12 | 12/12 | 11/12 | 6/12 | 0/12 | 3.28s |
+
+Earlier single-key Gemini testing hit `429 RESOURCE_EXHAUSTED` on 3 cases. After enabling the multi-key manager, the same 12-case run completed with 0 quota errors.
+
+The same benchmark was also run with local Ollama models:
 
 ```bash
 python3 scripts/evaluate_text_to_sql.py --mode llm --provider ollama --model llama3:latest --resume

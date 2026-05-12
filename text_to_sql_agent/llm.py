@@ -6,6 +6,7 @@ from typing import Any
 
 from .config import DEFAULT_MODEL_NAME, DEFAULT_OLLAMA_MODEL, DEFAULT_PROVIDER
 from .env import load_env
+from .gemnini_manager import get_default_gemnini_manager
 
 SQL_TRANSLATION_SYSTEM_PROMPT = """\
 You are an expert data analyst and SQL translator.
@@ -121,32 +122,33 @@ def generate_sql(
 
     if selected_provider == "gemini":
         sdk_name, genai, genai_types = _load_gemini_sdk()
-        api_key = (os.environ.get("GEMINI_API_KEY") or "").strip()
-        if not api_key:
-            raise ValueError("GEMINI_API_KEY is missing. Set it in `.env` or environment variables.")
+        key_manager = get_default_gemnini_manager()
 
-        if sdk_name == "google-genai":
-            client = genai.Client(api_key=api_key)
-            response = client.models.generate_content(
-                model=model_name or DEFAULT_MODEL_NAME,
-                contents=prompt,
-                config=genai_types.GenerateContentConfig(
-                    temperature=0.0,
-                    max_output_tokens=512,
+        def generate_with_key(api_key: str) -> str:
+            if sdk_name == "google-genai":
+                client = genai.Client(api_key=api_key)
+                response = client.models.generate_content(
+                    model=model_name or DEFAULT_MODEL_NAME,
+                    contents=prompt,
+                    config=genai_types.GenerateContentConfig(
+                        temperature=0.0,
+                        max_output_tokens=512,
+                        system_instruction=SQL_TRANSLATION_SYSTEM_PROMPT,
+                    ),
+                )
+            else:
+                genai.configure(api_key=api_key)
+                model = genai.GenerativeModel(
+                    model_name or DEFAULT_MODEL_NAME,
                     system_instruction=SQL_TRANSLATION_SYSTEM_PROMPT,
-                ),
-            )
-        else:
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel(
-                model_name or DEFAULT_MODEL_NAME,
-                system_instruction=SQL_TRANSLATION_SYSTEM_PROMPT,
-            )
-            response = model.generate_content(
-                contents=prompt,
-                generation_config={"temperature": 0.0, "max_output_tokens": 512},
-            )
-        return _extract_sql_from_text(str(response.text or ""))
+                )
+                response = model.generate_content(
+                    contents=prompt,
+                    generation_config={"temperature": 0.0, "max_output_tokens": 512},
+                )
+            return _extract_sql_from_text(str(response.text or ""))
+
+        return key_manager.run(generate_with_key)
 
     if selected_provider == "ollama":
         ChatOllama, HumanMessage, SystemMessage = _load_ollama_sdk()
