@@ -244,9 +244,9 @@ Gemini was evaluated with `gemini-2.5-flash` and 10 configured API keys for quot
 python3 scripts/evaluate_text_to_sql.py --mode llm --provider gemini --model gemini-2.5-flash --max-cases 12 --max-retries 1 --retry-base-seconds 5
 ```
 
-| Model | Safe SQL | Execution Success | Value Match | Row Match | Exact Result Match | Avg Latency |
-|---|---:|---:|---:|---:|---:|---:|
-| `gemini-2.5-flash` | 12/12 | 12/12 | 11/12 | 6/12 | 0/12 | 3.28s |
+| Model | Safe SQL | Execution Success | Value Match, all cases | Value Match, executed only | Row Match | Exact Result Match | Avg Latency |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `gemini-2.5-flash` | 12/12 | 12/12 | 11/12 | 11/12 | 6/12 | 0/12 | 3.28s |
 
 Earlier single-key Gemini testing hit `429 RESOURCE_EXHAUSTED` on 3 cases. After enabling the multi-key manager, the same 12-case run completed with 0 quota errors.
 
@@ -257,12 +257,14 @@ python3 scripts/evaluate_text_to_sql.py --mode llm --provider ollama --model lla
 python3 scripts/evaluate_text_to_sql.py --mode llm --provider ollama --model gemma4:latest --resume
 ```
 
-| Model | Safe SQL | Execution Success | Value Match | Row Match | Exact Result Match | Avg Latency |
-|---|---:|---:|---:|---:|---:|---:|
-| `llama3:latest` | 12/12 | 12/12 | 8/12 | 5/12 | 0/12 | 3.78s |
-| `gemma4:latest` | 10/12 | 10/12 | 8/12 | 3/12 | 0/12 | 5.65s |
+| Model | Safe SQL | Execution Success | Value Match, all cases | Value Match, executed only | Row Match | Exact Result Match | Avg Latency |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `llama3:latest` | 12/12 | 12/12 | 8/12 | 8/12 | 5/12 | 0/12 | 3.78s |
+| `gemma4:latest` | 10/12 | 10/12 | 8/12 | 8/10 | 3/12 | 0/12 | 5.65s |
 
-Manual inspection showed that `exact_result_match` is intentionally strict. It requires matching result values, row order, and column names. Many exact-match failures were still analytically correct because the generated SQL returned the same values with different aliases, missing `ROUND()` formatting, or a different row order.
+Manual inspection showed that `exact_result_match` is intentionally strict. It requires matching result values, row order, and column names. Many exact-match failures were still analytically useful because the generated SQL returned the same values with different aliases, missing `ROUND()` formatting, or a different row order.
+
+`Value Match, all cases` is the best headline metric for end-to-end reliability because blocked or failed SQL still counts against the model. `Value Match, executed only` is useful for judging SQL quality after the safety/execution layer has accepted the query. Under that second view, Gemma 4 reached 8/10, while Llama 3 reached 8/12.
 
 For `llama3:latest`, 8 of 12 cases were value-correct. The 4 incorrect cases were:
 
@@ -278,7 +280,12 @@ For `gemma4:latest`, 8 of 12 cases were value-correct. The 4 incorrect cases wer
 - `retail_revenue_by_category`: generated truncated SQL that was blocked by the safety layer.
 - `retail_support_satisfaction_by_priority`: grouped by priority but did not return the priority column.
 
-Based on this run, `llama3:latest` is the stronger local default for the project: both models reached 8/12 value correctness, but Llama 3 produced safe and executable SQL for every case and had lower average latency. Gemma 4 had two blocked SQL outputs on harder retail revenue questions.
+Based on this run, the local-model choice depends on what we optimize for:
+
+- `llama3:latest` is the stronger default for end-to-end reliability: it produced safe, executable SQL for every case, matched 8/12 values overall, and had lower average latency.
+- `gemma4:latest` looks stronger among the queries it successfully executed: 8/10 executed queries were value-correct. However, it had two blocked SQL outputs on harder retail revenue questions, so its end-to-end value match remained 8/12.
+
+For the deployed app, `llama3:latest` is the safer local default. For experimentation, Gemma 4 is worth revisiting after prompt or repair improvements because its accepted queries had a higher value-correct rate.
 
 ## Streamlit Community Cloud
 
