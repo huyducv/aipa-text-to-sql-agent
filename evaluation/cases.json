@@ -1,0 +1,110 @@
+[
+  {
+    "id": "university_major_counts",
+    "dataset": "university",
+    "db_path": "data/university_agent.db",
+    "question": "How many students are enrolled in each major?",
+    "gold_sql": "SELECT major, COUNT(*) AS student_count FROM students GROUP BY major ORDER BY major;",
+    "expected_tables": ["students"],
+    "difficulty": "easy"
+  },
+  {
+    "id": "university_average_score_by_course",
+    "dataset": "university",
+    "db_path": "data/university_agent.db",
+    "question": "What is the average score for each course?",
+    "gold_sql": "SELECT c.course_code, c.course_name, ROUND(AVG(g.score), 2) AS average_score FROM grades g JOIN courses c ON g.course_id = c.course_id GROUP BY c.course_id, c.course_code, c.course_name ORDER BY c.course_code;",
+    "expected_tables": ["grades", "courses"],
+    "difficulty": "medium"
+  },
+  {
+    "id": "university_top_students_by_average_score",
+    "dataset": "university",
+    "db_path": "data/university_agent.db",
+    "question": "Which five students have the highest average score?",
+    "gold_sql": "SELECT s.full_name, ROUND(AVG(g.score), 2) AS average_score FROM students s JOIN grades g ON s.student_id = g.student_id GROUP BY s.student_id, s.full_name ORDER BY average_score DESC, s.full_name LIMIT 5;",
+    "expected_tables": ["students", "grades"],
+    "difficulty": "medium"
+  },
+  {
+    "id": "university_grade_distribution",
+    "dataset": "university",
+    "db_path": "data/university_agent.db",
+    "question": "Show the number of grades awarded for each grade band.",
+    "gold_sql": "SELECT grade, COUNT(*) AS grade_count FROM grades GROUP BY grade ORDER BY grade;",
+    "expected_tables": ["grades"],
+    "difficulty": "easy"
+  },
+  {
+    "id": "retail_revenue_by_region",
+    "dataset": "retail",
+    "db_path": "data/retail_analytics.db",
+    "question": "Show total completed sales revenue by customer region.",
+    "gold_sql": "SELECT r.region_name, ROUND(SUM(oi.quantity * oi.unit_price * (1 - oi.discount_pct)), 2) AS revenue FROM orders o JOIN order_items oi ON o.order_id = oi.order_id JOIN customers c ON o.customer_id = c.customer_id JOIN regions r ON c.region_id = r.region_id WHERE o.order_status = 'Completed' GROUP BY r.region_name ORDER BY revenue DESC;",
+    "expected_tables": ["orders", "order_items", "customers", "regions"],
+    "difficulty": "hard"
+  },
+  {
+    "id": "retail_revenue_by_category",
+    "dataset": "retail",
+    "db_path": "data/retail_analytics.db",
+    "question": "Which product categories generate the most completed order revenue?",
+    "gold_sql": "SELECT p.category, ROUND(SUM(oi.quantity * oi.unit_price * (1 - oi.discount_pct)), 2) AS revenue FROM orders o JOIN order_items oi ON o.order_id = oi.order_id JOIN products p ON oi.product_id = p.product_id WHERE o.order_status = 'Completed' GROUP BY p.category ORDER BY revenue DESC;",
+    "expected_tables": ["orders", "order_items", "products"],
+    "difficulty": "hard"
+  },
+  {
+    "id": "retail_support_satisfaction_by_priority",
+    "dataset": "retail",
+    "db_path": "data/retail_analytics.db",
+    "question": "What is the average customer support satisfaction score by ticket priority?",
+    "gold_sql": "SELECT priority, ROUND(AVG(satisfaction_score), 2) AS average_satisfaction FROM customer_support_tickets GROUP BY priority ORDER BY average_satisfaction DESC, priority;",
+    "expected_tables": ["customer_support_tickets"],
+    "difficulty": "medium"
+  },
+  {
+    "id": "retail_return_reason_counts",
+    "dataset": "retail",
+    "db_path": "data/retail_analytics.db",
+    "question": "Which return reasons occur most often?",
+    "gold_sql": "SELECT reason, COUNT(*) AS return_count FROM returns GROUP BY reason ORDER BY return_count DESC, reason;",
+    "expected_tables": ["returns"],
+    "difficulty": "easy"
+  },
+  {
+    "id": "healthcare_appointments_by_status",
+    "dataset": "healthcare",
+    "db_path": "data/healthcare_analytics.db",
+    "question": "How many appointments are there for each status?",
+    "gold_sql": "SELECT status, COUNT(*) AS appointment_count FROM appointments GROUP BY status ORDER BY appointment_count DESC, status;",
+    "expected_tables": ["appointments"],
+    "difficulty": "easy"
+  },
+  {
+    "id": "healthcare_treatment_cost_by_city",
+    "dataset": "healthcare",
+    "db_path": "data/healthcare_analytics.db",
+    "question": "What is the average treatment cost by hospital city?",
+    "gold_sql": "SELECT h.city, ROUND(AVG(t.cost), 2) AS average_treatment_cost FROM treatments t JOIN appointments a ON t.appointment_id = a.appointment_id JOIN doctors d ON a.doctor_id = d.doctor_id JOIN hospitals h ON d.hospital_id = h.hospital_id GROUP BY h.city ORDER BY average_treatment_cost DESC;",
+    "expected_tables": ["treatments", "appointments", "doctors", "hospitals"],
+    "difficulty": "hard"
+  },
+  {
+    "id": "healthcare_completed_appointments_by_specialty",
+    "dataset": "healthcare",
+    "db_path": "data/healthcare_analytics.db",
+    "question": "Which doctor specialties have the most completed appointments?",
+    "gold_sql": "SELECT d.specialty, COUNT(*) AS completed_appointments FROM appointments a JOIN doctors d ON a.doctor_id = d.doctor_id WHERE a.status = 'Completed' GROUP BY d.specialty ORDER BY completed_appointments DESC, d.specialty;",
+    "expected_tables": ["appointments", "doctors"],
+    "difficulty": "medium"
+  },
+  {
+    "id": "healthcare_patient_count_by_city",
+    "dataset": "healthcare",
+    "db_path": "data/healthcare_analytics.db",
+    "question": "How many patients are registered in each city?",
+    "gold_sql": "SELECT city, COUNT(*) AS patient_count FROM patients GROUP BY city ORDER BY patient_count DESC, city;",
+    "expected_tables": ["patients"],
+    "difficulty": "easy"
+  }
+]

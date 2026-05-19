@@ -1,17 +1,16 @@
-"""
-Compatibility wrapper for the refactored Text-to-SQL backend package.
-
-The production implementation now lives in `text_to_sql_agent/`. This module
-keeps the original import path working for the Streamlit app, notebook, tests,
-and assessment history.
-"""
-
 from __future__ import annotations
 
 import os
 from pathlib import Path
 
-from text_to_sql_agent import *  # noqa: F401,F403
+from .config import DEFAULT_MODEL_NAME, DEFAULT_RAG_TOP_K
+from .execution import execute_query
+from .ingestion import ingest_csvs_to_db
+from .llm import generate_sql
+from .rag import retrieve_relevant_schema
+from .safety import is_safe_query
+from .schema import get_schema
+from .types import QueryResult
 
 
 def ask_database(
@@ -24,7 +23,7 @@ def ask_database(
     rag_top_k: int = DEFAULT_RAG_TOP_K,
     max_repair_attempts: int = 1,
 ) -> QueryResult:
-    """Compatibility wrapper that remains patch-friendly for tests."""
+    """End-to-end Text-to-SQL wrapper: schema retrieval, generation, safety, execution."""
     if not os.path.exists(db_path):
         raise FileNotFoundError("input database not found")
 
@@ -69,7 +68,7 @@ def ask_database_with_sql(
     rag_top_k: int = DEFAULT_RAG_TOP_K,
     max_repair_attempts: int = 1,
 ) -> tuple[str, QueryResult]:
-    """Compatibility wrapper that also returns generated SQL."""
+    """Same as `ask_database`, but also returns the generated SQL for UI display."""
     if not os.path.exists(db_path):
         raise FileNotFoundError("input database not found")
 
@@ -120,7 +119,7 @@ def ask_from_files(
     rag_top_k: int = DEFAULT_RAG_TOP_K,
     max_repair_attempts: int = 1,
 ) -> QueryResult:
-    """Compatibility router for DB and CSV workflows."""
+    """Route a `.db` file directly or ingest CSV files before querying."""
     paths = [file_paths] if isinstance(file_paths, str) else list(file_paths)
     if not paths:
         raise ValueError("file_paths must contain at least one path")

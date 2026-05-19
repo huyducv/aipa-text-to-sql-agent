@@ -1,0 +1,270 @@
+<mxfile host="app.diagrams.net" modified="2026-05-19T00:00:00.000Z" agent="Codex" version="24.7.17">
+  <diagram id="user-tool-workflow" name="User Tool Workflow">
+    <mxGraphModel dx="1800" dy="1100" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2000" pageHeight="1120" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="bg" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Google Sans;fillColor=#f8fafc;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="0" y="0" width="2000" height="1120" as="geometry" />
+        </mxCell>
+        <mxCell id="title" value="User Tool Workflow: Natural Language to Safe SQL Result" style="text;html=1;fontFamily=Google Sans;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=30;fontStyle=1;fontColor=#111827;" vertex="1" parent="1">
+          <mxGeometry x="430" y="35" width="1140" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" value="Runtime path for a user asking questions over a sample SQLite database, uploaded .db file, or uploaded CSV files" style="text;html=1;fontFamily=Google Sans;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=16;fontColor=#4b5563;" vertex="1" parent="1">
+          <mxGeometry x="330" y="82" width="1340" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="lane1" value="1. User Input" style="swimlane;html=1;fontFamily=Google Sans;startSize=34;horizontal=1;rounded=1;fontSize=16;fontStyle=1;fillColor=#eff6ff;strokeColor=#93c5fd;fontColor=#1d4ed8;" vertex="1" parent="1">
+          <mxGeometry x="55" y="145" width="330" height="245" as="geometry" />
+        </mxCell>
+        <mxCell id="lane2" value="2. Data Preparation" style="swimlane;html=1;fontFamily=Google Sans;startSize=34;horizontal=1;rounded=1;fontSize=16;fontStyle=1;fillColor=#f0fdf4;strokeColor=#86efac;fontColor=#15803d;" vertex="1" parent="1">
+          <mxGeometry x="420" y="145" width="420" height="245" as="geometry" />
+        </mxCell>
+        <mxCell id="lane3" value="3. Schema Retrieval" style="swimlane;html=1;fontFamily=Google Sans;startSize=34;horizontal=1;rounded=1;fontSize=16;fontStyle=1;fillColor=#ecfdf5;strokeColor=#34d399;fontColor=#047857;" vertex="1" parent="1">
+          <mxGeometry x="875" y="145" width="350" height="245" as="geometry" />
+        </mxCell>
+        <mxCell id="lane4" value="4. SQL Generation" style="swimlane;html=1;fontFamily=Google Sans;startSize=34;horizontal=1;rounded=1;fontSize=16;fontStyle=1;fillColor=#faf5ff;strokeColor=#d8b4fe;fontColor=#7e22ce;" vertex="1" parent="1">
+          <mxGeometry x="1260" y="145" width="325" height="245" as="geometry" />
+        </mxCell>
+        <mxCell id="lane5" value="5. Safety and Execution" style="swimlane;html=1;fontFamily=Google Sans;startSize=34;horizontal=1;rounded=1;fontSize=16;fontStyle=1;fillColor=#fff1f2;strokeColor=#fca5a5;fontColor=#b91c1c;" vertex="1" parent="1">
+          <mxGeometry x="1620" y="145" width="325" height="500" as="geometry" />
+        </mxCell>
+        <mxCell id="lane6" value="6. Answer Display" style="swimlane;html=1;fontFamily=Google Sans;startSize=34;horizontal=1;rounded=1;fontSize=16;fontStyle=1;fillColor=#eff6ff;strokeColor=#93c5fd;fontColor=#1d4ed8;" vertex="1" parent="1">
+          <mxGeometry x="55" y="445" width="1170" height="200" as="geometry" />
+        </mxCell>
+        <mxCell id="user" value="&lt;b&gt;User&lt;/b&gt;&#xa;Asks a natural-language business question" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fontSize=14;fontColor=#111827;spacing=10;fillColor=#dbeafe;strokeColor=#3b82f6;" vertex="1" parent="1">
+          <mxGeometry x="95" y="205" width="240" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="ui" value="&lt;b&gt;Streamlit Interface&lt;/b&gt;&#xa;Question box, provider/model, database selector, RAG toggle" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fontSize=14;fontColor=#111827;spacing=10;fillColor=#dbeafe;strokeColor=#3b82f6;" vertex="1" parent="1">
+          <mxGeometry x="95" y="305" width="240" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="source" value="&lt;b&gt;Data Source Choice&lt;/b&gt;&#xa;Sample DB, uploaded SQLite .db, or uploaded CSV files" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fontSize=14;fontColor=#111827;spacing=10;fillColor=#dcfce7;strokeColor=#22c55e;" vertex="1" parent="1">
+          <mxGeometry x="455" y="205" width="170" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="ingest" value="&lt;b&gt;CSV / DB Loader&lt;/b&gt;&#xa;Sanitise table names; convert CSVs to SQLite when needed" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fontSize=14;fontColor=#111827;spacing=10;fillColor=#dcfce7;strokeColor=#22c55e;" vertex="1" parent="1">
+          <mxGeometry x="650" y="205" width="155" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="db" value="&lt;b&gt;SQLite Database&lt;/b&gt;&#xa;University, retail, healthcare, or user-provided data" style="shape=cylinder3d;whiteSpace=wrap;html=1;fontFamily=Google Sans;boundedLbl=1;backgroundOutline=1;size=15;fontSize=14;fontColor=#111827;fillColor=#ecfdf5;strokeColor=#22c55e;" vertex="1" parent="1">
+          <mxGeometry x="535" y="315" width="210" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="schema" value="&lt;b&gt;Schema Extraction&lt;/b&gt;&#xa;DDL, columns, primary keys, foreign-key graph, value hints" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fontSize=14;fontColor=#111827;spacing=10;fillColor=#dcfce7;strokeColor=#22c55e;" vertex="1" parent="1">
+          <mxGeometry x="910" y="205" width="135" height="105" as="geometry" />
+        </mxCell>
+        <mxCell id="rag" value="&lt;b&gt;Hybrid Schema RAG&lt;/b&gt;&#xa;Rank and select relevant table chunks for the prompt" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fontSize=14;fontColor=#111827;spacing=10;fillColor=#dcfce7;strokeColor=#22c55e;" vertex="1" parent="1">
+          <mxGeometry x="1065" y="205" width="125" height="105" as="geometry" />
+        </mxCell>
+        <mxCell id="prompt" value="&lt;b&gt;Prompt Builder&lt;/b&gt;&#xa;User question + compact schema context + SQL-only instruction" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fontSize=14;fontColor=#111827;spacing=10;fillColor=#f3e8ff;strokeColor=#9333ea;" vertex="1" parent="1">
+          <mxGeometry x="1295" y="205" width="120" height="105" as="geometry" />
+        </mxCell>
+        <mxCell id="llm" value="&lt;b&gt;Gemini 2.5 Flash or Ollama&lt;/b&gt;&#xa;Generate one SQLite SELECT candidate" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fontSize=14;fontColor=#111827;spacing=10;fillColor=#f3e8ff;strokeColor=#9333ea;" vertex="1" parent="1">
+          <mxGeometry x="1435" y="205" width="115" height="105" as="geometry" />
+        </mxCell>
+        <mxCell id="keymgr" value="&lt;b&gt;Gemini Key Manager&lt;/b&gt;&#xa;Multi-key quota failover for hosted Gemini calls" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fontSize=13;fontColor=#111827;spacing=8;fillColor=#ffffff;strokeColor=#9333ea;dashed=1;fontColor=#6b21a8;" vertex="1" parent="1">
+          <mxGeometry x="1295" y="325" width="255" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="sql" value="&lt;b&gt;SQL Candidate&lt;/b&gt;&#xa;Visible to the user, but not trusted yet" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fontSize=14;fontColor=#111827;spacing=10;fillColor=#fee2e2;strokeColor=#ef4444;" vertex="1" parent="1">
+          <mxGeometry x="1665" y="195" width="230" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="safe" value="&lt;b&gt;Safety Gate&lt;/b&gt;&#xa;sqlglot AST, deny-list guard, single read-only SELECT policy" style="rhombus;whiteSpace=wrap;html=1;fontFamily=Google Sans;fontSize=14;fontColor=#111827;spacing=8;fillColor=#fff7ed;strokeColor=#f97316;" vertex="1" parent="1">
+          <mxGeometry x="1700" y="325" width="160" height="125" as="geometry" />
+        </mxCell>
+        <mxCell id="exec" value="&lt;b&gt;Read-only SQLite Execution&lt;/b&gt;&#xa;URI read-only, PRAGMA query_only, authorizer, row cap" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fontSize=14;fontColor=#111827;spacing=10;fillColor=#fee2e2;strokeColor=#ef4444;" vertex="1" parent="1">
+          <mxGeometry x="1665" y="525" width="230" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="blocked" value="&lt;b&gt;Blocked / Unanswerable&lt;/b&gt;&#xa;No database write and no unsafe execution" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fontSize=14;fontColor=#111827;spacing=10;fillColor=#fee2e2;strokeColor=#dc2626;fontColor=#991b1b;" vertex="1" parent="1">
+          <mxGeometry x="1470" y="410" width="130" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="repair" value="&lt;b&gt;Repair Attempt&lt;/b&gt;&#xa;Execution error can trigger one repair prompt" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fontSize=13;fontColor=#111827;spacing=8;fillColor=#faf5ff;strokeColor=#9333ea;dashed=1;fontColor=#6b21a8;" vertex="1" parent="1">
+          <mxGeometry x="1330" y="430" width="160" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="answer" value="&lt;b&gt;Answer Panel&lt;/b&gt;&#xa;Result table, generated SQL, selected schema, RAG diagnostics" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fontSize=14;fontColor=#111827;spacing=10;fillColor=#dbeafe;strokeColor=#3b82f6;" vertex="1" parent="1">
+          <mxGeometry x="110" y="515" width="290" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="diag" value="&lt;b&gt;Transparency Outputs&lt;/b&gt;&#xa;Schema DDL, selected tables, matched terms, prompt savings" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fontSize=14;fontColor=#111827;spacing=10;fillColor=#e0f2fe;strokeColor=#0284c7;" vertex="1" parent="1">
+          <mxGeometry x="460" y="515" width="300" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="usertrust" value="&lt;b&gt;User Review&lt;/b&gt;&#xa;Inspect SQL and diagnostics before relying on the answer" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fontSize=14;fontColor=#111827;spacing=10;fillColor=#dbeafe;strokeColor=#3b82f6;" vertex="1" parent="1">
+          <mxGeometry x="820" y="515" width="300" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontFamily=Google Sans;endArrow=block;strokeWidth=2;strokeColor=#2563eb;fontSize=12;fontColor=#2563eb;" edge="1" parent="1" source="user" target="ui"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontFamily=Google Sans;endArrow=block;strokeWidth=2;strokeColor=#2563eb;fontSize=12;fontColor=#2563eb;" edge="1" parent="1" source="ui" target="source"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontFamily=Google Sans;endArrow=block;strokeWidth=2;strokeColor=#16a34a;fontSize=12;fontColor=#16a34a;" edge="1" parent="1" source="source" target="ingest"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e4" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontFamily=Google Sans;endArrow=block;strokeWidth=2;strokeColor=#16a34a;fontSize=12;fontColor=#16a34a;" edge="1" parent="1" source="ingest" target="db"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e5" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontFamily=Google Sans;endArrow=block;strokeWidth=2;strokeColor=#16a34a;fontSize=12;fontColor=#16a34a;" edge="1" parent="1" source="db" target="schema"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e6" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontFamily=Google Sans;endArrow=block;strokeWidth=2;strokeColor=#16a34a;fontSize=12;fontColor=#16a34a;" edge="1" parent="1" source="schema" target="rag"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e7" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontFamily=Google Sans;endArrow=block;strokeWidth=2;strokeColor=#16a34a;fontSize=12;fontColor=#16a34a;" edge="1" parent="1" source="rag" target="prompt"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e8" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontFamily=Google Sans;endArrow=block;strokeWidth=2;strokeColor=#9333ea;fontSize=12;fontColor=#9333ea;" edge="1" parent="1" source="prompt" target="llm"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e9" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontFamily=Google Sans;endArrow=block;strokeWidth=2;strokeColor=#9333ea;fontSize=12;fontColor=#9333ea;" edge="1" parent="1" source="llm" target="sql"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e10" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontFamily=Google Sans;endArrow=block;strokeWidth=2;strokeColor=#dc2626;fontSize=12;fontColor=#dc2626;" edge="1" parent="1" source="sql" target="safe"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e11" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontFamily=Google Sans;endArrow=block;strokeWidth=2;strokeColor=#16a34a;fontSize=12;fontColor=#16a34a;" edge="1" parent="1" source="safe" target="exec"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e12" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontFamily=Google Sans;endArrow=block;strokeWidth=2;strokeColor=#dc2626;fontSize=12;fontColor=#dc2626;" edge="1" parent="1" source="safe" target="blocked"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e13" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontFamily=Google Sans;endArrow=block;strokeWidth=2;strokeColor=#2563eb;fontSize=12;fontColor=#2563eb;" edge="1" parent="1" source="exec" target="answer"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e14" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontFamily=Google Sans;endArrow=block;strokeWidth=2;strokeColor=#0284c7;fontSize=12;fontColor=#0284c7;" edge="1" parent="1" source="answer" target="diag"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e15" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontFamily=Google Sans;endArrow=block;strokeWidth=2;strokeColor=#2563eb;fontSize=12;fontColor=#2563eb;" edge="1" parent="1" source="diag" target="usertrust"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e16" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontFamily=Google Sans;endArrow=block;strokeWidth=2;strokeColor=#9333ea;dashed=1;fontSize=12;fontColor=#9333ea;" edge="1" parent="1" source="exec" target="repair"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e17" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontFamily=Google Sans;endArrow=block;strokeWidth=2;strokeColor=#9333ea;dashed=1;fontSize=12;fontColor=#9333ea;" edge="1" parent="1" source="repair" target="llm"><mxGeometry relative="1" as="geometry" /></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="hybrid-schema-rag-detail" name="Hybrid Schema RAG Detail">
+    <mxGraphModel dx="1800" dy="1100" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2000" pageHeight="1120" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="bg" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Google Sans;fillColor=#f8fafc;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="0" y="0" width="2000" height="1120" as="geometry" />
+        </mxCell>
+        <mxCell id="title" value="Hybrid Schema RAG Detail: How Relevant Tables Are Selected" style="text;html=1;fontFamily=Google Sans;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=30;fontStyle=1;fontColor=#111827;" vertex="1" parent="1">
+          <mxGeometry x="360" y="35" width="1280" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" value="Local retrieval over schema metadata only: no unrestricted database rows are sent to the LLM prompt" style="text;html=1;fontFamily=Google Sans;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=16;fontColor=#4b5563;" vertex="1" parent="1">
+          <mxGeometry x="350" y="82" width="1300" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="q" value="&lt;b&gt;User Question&lt;/b&gt;&#xa;Natural-language request" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fontSize=14;fontColor=#111827;spacing=10;fillColor=#dbeafe;strokeColor=#3b82f6;" vertex="1" parent="1">
+          <mxGeometry x="90" y="210" width="210" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="norm" value="&lt;b&gt;1. Normalize and Tokenize&lt;/b&gt;&#xa;Lowercase, split terms, remove noise, preserve domain words" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fontSize=14;fontColor=#111827;spacing=10;fillColor=#dcfce7;strokeColor=#22c55e;" vertex="1" parent="1">
+          <mxGeometry x="370" y="185" width="230" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="syn" value="&lt;b&gt;2. Expand Domain Synonyms&lt;/b&gt;&#xa;client -&gt; customer&#xa;income/sales -&gt; revenue&#xa;doctor -&gt; provider/specialty" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fontSize=14;fontColor=#111827;spacing=10;fillColor=#dcfce7;strokeColor=#22c55e;" vertex="1" parent="1">
+          <mxGeometry x="670" y="175" width="250" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="decomp" value="&lt;b&gt;3. Decompose Query Intent&lt;/b&gt;&#xa;Entities/metrics, joins, filters, dimensions, aggregations, comparisons" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fontSize=14;fontColor=#111827;spacing=10;fillColor=#dcfce7;strokeColor=#22c55e;" vertex="1" parent="1">
+          <mxGeometry x="990" y="175" width="270" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="schemaCache" value="&lt;b&gt;Schema Chunk Cache&lt;/b&gt;&#xa;One chunk per table: DDL, columns, keys, FK neighbours, safe value hints" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fontSize=14;fontColor=#111827;spacing=10;fillColor=#ecfdf5;strokeColor=#22c55e;" vertex="1" parent="1">
+          <mxGeometry x="370" y="400" width="300" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="signals" value="&lt;b&gt;4. Retrieval Signals&lt;/b&gt;&#xa;BM25 lexical score&#xa;Exact table/column boosts&#xa;Character similarity&#xa;Hashed local embedding similarity&#xa;Value-hint matches" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fontSize=14;fontColor=#111827;spacing=10;fillColor=#f0fdf4;strokeColor=#16a34a;" vertex="1" parent="1">
+          <mxGeometry x="750" y="375" width="300" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="graph" value="&lt;b&gt;5. Graph Expansion&lt;/b&gt;&#xa;Add foreign-key neighbours needed for joins, e.g. orders -&gt; order_items -&gt; products" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fontSize=14;fontColor=#111827;spacing=10;fillColor=#f0fdf4;strokeColor=#16a34a;" vertex="1" parent="1">
+          <mxGeometry x="1125" y="400" width="300" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="rank" value="&lt;b&gt;6. Rank and Deduplicate&lt;/b&gt;&#xa;Combine scores, retain top-k tables plus necessary FK neighbours" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fontSize=14;fontColor=#111827;spacing=10;fillColor=#fef3c7;strokeColor=#f59e0b;" vertex="1" parent="1">
+          <mxGeometry x="1500" y="400" width="270" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="context" value="&lt;b&gt;Selected Prompt Context&lt;/b&gt;&#xa;Compact DDL, relevant table names, value hints, and relationship evidence" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fontSize=14;fontColor=#111827;spacing=10;fillColor=#f3e8ff;strokeColor=#9333ea;" vertex="1" parent="1">
+          <mxGeometry x="1260" y="665" width="300" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="report" value="&lt;b&gt;Retrieval Diagnostics&lt;/b&gt;&#xa;Selected tables, matched terms, reasons, schema recall, prompt savings, cache hit" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fontSize=14;fontColor=#111827;spacing=10;fillColor=#e0f2fe;strokeColor=#0284c7;" vertex="1" parent="1">
+          <mxGeometry x="750" y="665" width="340" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="llm" value="&lt;b&gt;LLM Prompt Input&lt;/b&gt;&#xa;Question + selected schema context only" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fontSize=14;fontColor=#111827;spacing=10;fillColor=#faf5ff;strokeColor=#9333ea;" vertex="1" parent="1">
+          <mxGeometry x="1620" y="665" width="250" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="r1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontFamily=Google Sans;endArrow=block;strokeWidth=2;strokeColor=#16a34a;fontSize=12;fontColor=#16a34a;" edge="1" parent="1" source="q" target="norm"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="r2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontFamily=Google Sans;endArrow=block;strokeWidth=2;strokeColor=#16a34a;fontSize=12;fontColor=#16a34a;" edge="1" parent="1" source="norm" target="syn"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="r3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontFamily=Google Sans;endArrow=block;strokeWidth=2;strokeColor=#16a34a;fontSize=12;fontColor=#16a34a;" edge="1" parent="1" source="syn" target="decomp"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="r4" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontFamily=Google Sans;endArrow=block;strokeWidth=2;strokeColor=#16a34a;fontSize=12;fontColor=#16a34a;" edge="1" parent="1" source="decomp" target="signals"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="r5" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontFamily=Google Sans;endArrow=block;strokeWidth=2;strokeColor=#16a34a;fontSize=12;fontColor=#16a34a;" edge="1" parent="1" source="schemaCache" target="signals"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="r6" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontFamily=Google Sans;endArrow=block;strokeWidth=2;strokeColor=#16a34a;fontSize=12;fontColor=#16a34a;" edge="1" parent="1" source="signals" target="graph"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="r7" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontFamily=Google Sans;endArrow=block;strokeWidth=2;strokeColor=#16a34a;fontSize=12;fontColor=#16a34a;" edge="1" parent="1" source="graph" target="rank"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="r8" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontFamily=Google Sans;endArrow=block;strokeWidth=2;strokeColor=#f59e0b;fontSize=12;fontColor=#f59e0b;" edge="1" parent="1" source="rank" target="context"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="r9" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontFamily=Google Sans;endArrow=block;strokeWidth=2;strokeColor=#0284c7;fontSize=12;fontColor=#0284c7;" edge="1" parent="1" source="rank" target="report"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="r10" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontFamily=Google Sans;endArrow=block;strokeWidth=2;strokeColor=#9333ea;fontSize=12;fontColor=#9333ea;" edge="1" parent="1" source="context" target="llm"><mxGeometry relative="1" as="geometry" /></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="offline-evaluation-workflow" name="Offline Evaluation Workflow">
+    <mxGraphModel dx="1800" dy="1100" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="bg" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Google Sans;fillColor=#fffaf0;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="0" y="0" width="1800" height="900" as="geometry" />
+        </mxCell>
+        <mxCell id="title" value="Offline Evaluation Workflow: Benchmark Evidence Only" style="text;html=1;fontFamily=Google Sans;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=30;fontStyle=1;fontColor=#111827;" vertex="1" parent="1">
+          <mxGeometry x="250" y="35" width="1300" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" value="This flow is not part of the live user path; it validates the tool using fixed cases, gold SQL, Gemini, and local Ollama runs" style="text;html=1;fontFamily=Google Sans;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=16;fontColor=#4b5563;" vertex="1" parent="1">
+          <mxGeometry x="250" y="82" width="1300" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="cases" value="&lt;b&gt;evaluation/cases.json&lt;/b&gt;&#xa;12 questions across university, retail, healthcare" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fontSize=14;fontColor=#111827;spacing=10;fillColor=#fef3c7;strokeColor=#f59e0b;" vertex="1" parent="1">
+          <mxGeometry x="90" y="220" width="250" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="gold" value="&lt;b&gt;Gold SQL Baseline&lt;/b&gt;&#xa;Run expected SQL to verify datasets and benchmark answers" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fontSize=14;fontColor=#111827;spacing=10;fillColor=#fef3c7;strokeColor=#f59e0b;" vertex="1" parent="1">
+          <mxGeometry x="440" y="180" width="280" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="llmrun" value="&lt;b&gt;LLM Evaluation Runs&lt;/b&gt;&#xa;Gemini 2.5 Flash, Ollama llama3, Ollama gemma4" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fontSize=14;fontColor=#111827;spacing=10;fillColor=#faf5ff;strokeColor=#9333ea;" vertex="1" parent="1">
+          <mxGeometry x="440" y="320" width="280" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="same" value="&lt;b&gt;Same Safety and Execution Stack&lt;/b&gt;&#xa;Validate SQL, execute read-only, compare result rows" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fontSize=14;fontColor=#111827;spacing=10;fillColor=#fee2e2;strokeColor=#ef4444;" vertex="1" parent="1">
+          <mxGeometry x="820" y="250" width="300" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="metrics" value="&lt;b&gt;Metrics&lt;/b&gt;&#xa;Safe SQL, execution success, value match, row match, exact match, schema recall, latency" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fontSize=14;fontColor=#111827;spacing=10;fillColor=#e0f2fe;strokeColor=#0284c7;" vertex="1" parent="1">
+          <mxGeometry x="1230" y="250" width="300" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="files" value="&lt;b&gt;Result Files&lt;/b&gt;&#xa;evaluation/results/*.csv&#xa;evaluation/results/*.md" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fontSize=14;fontColor=#111827;spacing=10;fillColor=#f3f4f6;strokeColor=#9ca3af;" vertex="1" parent="1">
+          <mxGeometry x="1600" y="250" width="150" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="v1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontFamily=Google Sans;endArrow=block;strokeWidth=2;strokeColor=#f59e0b;fontSize=12;fontColor=#f59e0b;" edge="1" parent="1" source="cases" target="gold"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="v2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontFamily=Google Sans;endArrow=block;strokeWidth=2;strokeColor=#9333ea;fontSize=12;fontColor=#9333ea;" edge="1" parent="1" source="cases" target="llmrun"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="v3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontFamily=Google Sans;endArrow=block;strokeWidth=2;strokeColor=#dc2626;fontSize=12;fontColor=#dc2626;" edge="1" parent="1" source="gold" target="same"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="v4" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontFamily=Google Sans;endArrow=block;strokeWidth=2;strokeColor=#dc2626;fontSize=12;fontColor=#dc2626;" edge="1" parent="1" source="llmrun" target="same"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="v5" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontFamily=Google Sans;endArrow=block;strokeWidth=2;strokeColor=#0284c7;fontSize=12;fontColor=#0284c7;" edge="1" parent="1" source="same" target="metrics"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="v6" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontFamily=Google Sans;endArrow=block;strokeWidth=2;strokeColor=#9ca3af;fontSize=12;fontColor=#9ca3af;" edge="1" parent="1" source="metrics" target="files"><mxGeometry relative="1" as="geometry" /></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="implementation-modules" name="Implementation Modules">
+    <mxGraphModel dx="1800" dy="1100" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1000" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="bg" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Google Sans;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="0" y="0" width="1600" height="1000" as="geometry" />
+        </mxCell>
+        <mxCell id="title" value="Implementation Module Map" style="text;html=1;fontFamily=Google Sans;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=30;fontStyle=1;fontColor=#111827;" vertex="1" parent="1">
+          <mxGeometry x="420" y="45" width="760" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="app" value="app.py&#xa;Streamlit layout, controls, answer rendering" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fontSize=14;fontColor=#111827;spacing=10;fillColor=#dbeafe;strokeColor=#3b82f6;" vertex="1" parent="1">
+          <mxGeometry x="90" y="180" width="250" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="pipe" value="pipeline.py&#xa;Main orchestration, prompt construction, repair loop" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fontSize=14;fontColor=#111827;spacing=10;fillColor=#fef3c7;strokeColor=#f59e0b;" vertex="1" parent="1">
+          <mxGeometry x="420" y="180" width="270" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="llm2" value="llm.py&#xa;Prompt assembly, Gemini/Ollama calls, SQL-only response cleanup" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fontSize=14;fontColor=#111827;spacing=10;fillColor=#f3e8ff;strokeColor=#9333ea;" vertex="1" parent="1">
+          <mxGeometry x="780" y="110" width="230" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="gemini2" value="gemini_manager.py&#xa;Multi-key loading, quota failover, 503 retry handling" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fontSize=14;fontColor=#111827;spacing=10;fillColor=#faf5ff;strokeColor=#9333ea;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="1080" y="70" width="250" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="rag2" value="rag.py&#xa;Hybrid schema retrieval, decomposition, value hints, cache" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fontSize=14;fontColor=#111827;spacing=10;fillColor=#dcfce7;strokeColor=#22c55e;" vertex="1" parent="1">
+          <mxGeometry x="780" y="235" width="230" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="schema2" value="schema.py&#xa;DDL extraction, columns, foreign keys" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fontSize=14;fontColor=#111827;spacing=10;fillColor=#dcfce7;strokeColor=#22c55e;" vertex="1" parent="1">
+          <mxGeometry x="1080" y="170" width="220" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="safety2" value="safety.py&#xa;SQL validation, sqlglot AST, deny-list, read-only policy" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fontSize=14;fontColor=#111827;spacing=10;fillColor=#fee2e2;strokeColor=#ef4444;" vertex="1" parent="1">
+          <mxGeometry x="420" y="385" width="270" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="exec2" value="execution.py&#xa;SQLite read-only execution and row limits" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fontSize=14;fontColor=#111827;spacing=10;fillColor=#fee2e2;strokeColor=#ef4444;" vertex="1" parent="1">
+          <mxGeometry x="780" y="390" width="230" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="data2" value="data_setup.py / ingestion.py&#xa;Demo database creation and CSV conversion" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fontSize=14;fontColor=#111827;spacing=10;fillColor=#f3f4f6;strokeColor=#9ca3af;" vertex="1" parent="1">
+          <mxGeometry x="1080" y="360" width="250" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="eval2" value="scripts/evaluate_text_to_sql.py&#xa;Gold baseline, Gemini/Ollama evaluation, CSV and Markdown export" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fontSize=14;fontColor=#111827;spacing=10;fillColor=#fffbeb;strokeColor=#f59e0b;" vertex="1" parent="1">
+          <mxGeometry x="420" y="580" width="310" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="docs2" value="docs/ and README.md&#xa;Architecture notes, setup guide, screenshots, deployment checklist" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fontSize=14;fontColor=#111827;spacing=10;fillColor=#f9fafb;strokeColor=#9ca3af;" vertex="1" parent="1">
+          <mxGeometry x="820" y="580" width="310" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="compat" value="text_to_sql_agent_mvp.py&#xa;Compatibility wrapper for old imports and tests" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fontSize=14;fontColor=#111827;spacing=10;fillColor=#e0f2fe;strokeColor=#0284c7;" vertex="1" parent="1">
+          <mxGeometry x="90" y="390" width="250" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="m1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontFamily=Google Sans;endArrow=block;strokeWidth=2;strokeColor=#2563eb;fontSize=12;fontColor=#2563eb;" edge="1" parent="1" source="app" target="pipe"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="m2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontFamily=Google Sans;endArrow=block;strokeWidth=2;strokeColor=#9333ea;fontSize=12;fontColor=#9333ea;" edge="1" parent="1" source="pipe" target="llm2"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="m2b" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontFamily=Google Sans;endArrow=block;strokeWidth=2;strokeColor=#9333ea;dashed=1;fontSize=12;fontColor=#9333ea;" edge="1" parent="1" source="llm2" target="gemini2"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="m3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontFamily=Google Sans;endArrow=block;strokeWidth=2;strokeColor=#16a34a;fontSize=12;fontColor=#16a34a;" edge="1" parent="1" source="pipe" target="rag2"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="m4" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontFamily=Google Sans;endArrow=block;strokeWidth=2;strokeColor=#16a34a;fontSize=12;fontColor=#16a34a;" edge="1" parent="1" source="rag2" target="schema2"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="m5" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontFamily=Google Sans;endArrow=block;strokeWidth=2;strokeColor=#dc2626;fontSize=12;fontColor=#dc2626;" edge="1" parent="1" source="pipe" target="safety2"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="m6" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontFamily=Google Sans;endArrow=block;strokeWidth=2;strokeColor=#dc2626;fontSize=12;fontColor=#dc2626;" edge="1" parent="1" source="safety2" target="exec2"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="m7" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontFamily=Google Sans;endArrow=block;strokeWidth=2;strokeColor=#9ca3af;fontSize=12;fontColor=#9ca3af;" edge="1" parent="1" source="data2" target="schema2"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="m8" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontFamily=Google Sans;endArrow=block;strokeWidth=2;strokeColor=#0284c7;fontSize=12;fontColor=#0284c7;" edge="1" parent="1" source="compat" target="pipe"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="m9" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontFamily=Google Sans;endArrow=block;strokeWidth=2;strokeColor=#f59e0b;fontSize=12;fontColor=#f59e0b;" edge="1" parent="1" source="eval2" target="pipe"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="m10" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontFamily=Google Sans;endArrow=block;strokeWidth=2;strokeColor=#9ca3af;fontSize=12;fontColor=#9ca3af;" edge="1" parent="1" source="eval2" target="docs2"><mxGeometry relative="1" as="geometry" /></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -1,0 +1,109 @@
+id,dataset,difficulty,mode,provider,model_name,use_rag,rag_top_k,safe_sql,execution_ok,row_match,value_match,exact_result_match,schema_table_recall,prompt_saved_pct,cache_hit,expected_tables,retrieved_tables,latency_ms,error,generated_sql,gold_sql
+university_major_counts,university,easy,llm,gemini,gemini-2.5-flash,True,6,True,True,True,True,False,1.0,0.0,True,students,"courses, grades, students",5425.83,,"SELECT major, COUNT(student_id) AS num_students FROM students GROUP BY major;","SELECT major, COUNT(*) AS student_count FROM students GROUP BY major ORDER BY major;"
+university_average_score_by_course,university,medium,llm,gemini,gemini-2.5-flash,True,6,True,True,False,False,False,1.0,0.0,True,"courses, grades","courses, grades, students",2914.75,,"SELECT
+  c.course_name,
+  AVG(g.score) AS average_score
+FROM grades AS g
+JOIN courses AS c
+  ON g.course_id = c.course_id
+GROUP BY
+  c.course_name;","SELECT c.course_code, c.course_name, ROUND(AVG(g.score), 2) AS average_score FROM grades g JOIN courses c ON g.course_id = c.course_id GROUP BY c.course_id, c.course_code, c.course_name ORDER BY c.course_code;"
+university_top_students_by_average_score,university,medium,llm,gemini,gemini-2.5-flash,True,6,True,True,False,True,False,1.0,0.0,True,"grades, students","courses, grades, students",2913.02,,"SELECT
+  s.full_name,
+  AVG(g.score) AS average_score
+FROM students AS s
+JOIN grades AS g
+  ON s.student_id = g.student_id
+GROUP BY
+  s.student_id,
+  s.full_name
+ORDER BY
+  average_score DESC
+LIMIT 5;","SELECT s.full_name, ROUND(AVG(g.score), 2) AS average_score FROM students s JOIN grades g ON s.student_id = g.student_id GROUP BY s.student_id, s.full_name ORDER BY average_score DESC, s.full_name LIMIT 5;"
+university_grade_distribution,university,easy,llm,gemini,gemini-2.5-flash,True,6,True,True,True,True,False,1.0,0.0,True,grades,"courses, grades, students",3012.55,,"SELECT grade, COUNT(*) AS number_of_grades
+FROM grades
+GROUP BY grade
+ORDER BY grade;","SELECT grade, COUNT(*) AS grade_count FROM grades GROUP BY grade ORDER BY grade;"
+retail_revenue_by_region,retail,hard,llm,gemini,gemini-2.5-flash,True,6,True,True,True,True,False,1.0,25.7,True,"customers, order_items, orders, regions","customer_support_tickets, customers, marketing_campaigns, order_items, orders, regions, returns, stores",3383.32,,"SELECT
+  r.region_name,
+  SUM(oi.quantity * oi.unit_price * (
+    1 - oi.discount_pct
+  )) AS total_completed_sales_revenue
+FROM orders AS o
+JOIN order_items AS oi
+  ON o.order_id = oi.order_id
+JOIN customers AS c
+  ON o.customer_id = c.customer_id
+JOIN regions AS r
+  ON c.region_id = r.region_id
+WHERE
+  LOWER(o.order_status) = 'completed'
+GROUP BY
+  r.region_name
+ORDER BY
+  total_completed_sales_revenue DESC;","SELECT r.region_name, ROUND(SUM(oi.quantity * oi.unit_price * (1 - oi.discount_pct)), 2) AS revenue FROM orders o JOIN order_items oi ON o.order_id = oi.order_id JOIN customers c ON o.customer_id = c.customer_id JOIN regions r ON c.region_id = r.region_id WHERE o.order_status = 'Completed' GROUP BY r.region_name ORDER BY revenue DESC;"
+retail_revenue_by_category,retail,hard,llm,gemini,gemini-2.5-flash,True,6,True,True,True,True,False,1.0,4.1,True,"order_items, orders, products","customer_support_tickets, customers, inventory_snapshots, marketing_campaigns, order_items, orders, products, returns, stores, suppliers",3180.44,,"SELECT
+  p.category,
+  SUM(oi.quantity * oi.unit_price * (
+    1 - oi.discount_pct
+  )) AS total_revenue
+FROM orders AS o
+JOIN order_items AS oi
+  ON o.order_id = oi.order_id
+JOIN products AS p
+  ON oi.product_id = p.product_id
+WHERE
+  LOWER(o.order_status) = LOWER('Completed')
+GROUP BY
+  p.category
+ORDER BY
+  total_revenue DESC;","SELECT p.category, ROUND(SUM(oi.quantity * oi.unit_price * (1 - oi.discount_pct)), 2) AS revenue FROM orders o JOIN order_items oi ON o.order_id = oi.order_id JOIN products p ON oi.product_id = p.product_id WHERE o.order_status = 'Completed' GROUP BY p.category ORDER BY revenue DESC;"
+retail_support_satisfaction_by_priority,retail,medium,llm,gemini,gemini-2.5-flash,True,6,True,True,False,True,False,1.0,22.9,True,customer_support_tickets,"customer_support_tickets, customers, marketing_campaigns, orders, products, regions, stores, suppliers",4703.23,,"SELECT
+  priority,
+  AVG(satisfaction_score)
+FROM customer_support_tickets
+GROUP BY
+  priority
+ORDER BY
+  CASE priority
+    WHEN 'High' THEN 1
+    WHEN 'Medium' THEN 2
+    WHEN 'Low' THEN 3
+    ELSE 4
+  END;","SELECT priority, ROUND(AVG(satisfaction_score), 2) AS average_satisfaction FROM customer_support_tickets GROUP BY priority ORDER BY average_satisfaction DESC, priority;"
+retail_return_reason_counts,retail,easy,llm,gemini,gemini-2.5-flash,True,6,True,True,False,True,False,1.0,19.0,True,returns,"customer_support_tickets, customers, order_items, orders, products, regions, returns, stores, suppliers",3183.7,,"SELECT
+  reason,
+  COUNT(return_id) AS return_count
+FROM returns
+GROUP BY
+  reason
+ORDER BY
+  return_count DESC;","SELECT reason, COUNT(*) AS return_count FROM returns GROUP BY reason ORDER BY return_count DESC, reason;"
+healthcare_appointments_by_status,healthcare,easy,llm,gemini,gemini-2.5-flash,True,6,True,True,True,True,False,1.0,0.0,True,appointments,"appointments, doctors, hospitals, patients, prescriptions, treatments",2004.02,,"SELECT status, COUNT(appointment_id) FROM appointments GROUP BY status;","SELECT status, COUNT(*) AS appointment_count FROM appointments GROUP BY status ORDER BY appointment_count DESC, status;"
+healthcare_treatment_cost_by_city,healthcare,hard,llm,gemini,gemini-2.5-flash,True,6,True,True,False,True,False,1.0,0.0,True,"appointments, doctors, hospitals, treatments","appointments, doctors, hospitals, patients, prescriptions, treatments",3628.14,,"SELECT
+  H.city,
+  AVG(T.cost)
+FROM treatments AS T
+JOIN appointments AS A
+  ON T.appointment_id = A.appointment_id
+JOIN doctors AS D
+  ON A.doctor_id = D.doctor_id
+JOIN hospitals AS H
+  ON D.hospital_id = H.hospital_id
+GROUP BY
+  H.city;","SELECT h.city, ROUND(AVG(t.cost), 2) AS average_treatment_cost FROM treatments t JOIN appointments a ON t.appointment_id = a.appointment_id JOIN doctors d ON a.doctor_id = d.doctor_id JOIN hospitals h ON d.hospital_id = h.hospital_id GROUP BY h.city ORDER BY average_treatment_cost DESC;"
+healthcare_completed_appointments_by_specialty,healthcare,medium,llm,gemini,gemini-2.5-flash,True,6,True,True,True,True,False,1.0,0.0,True,"appointments, doctors","appointments, doctors, hospitals, patients, prescriptions, treatments",3130.9,,"SELECT
+  T2.specialty,
+  COUNT(T1.appointment_id) AS completed_appointments_count
+FROM appointments AS T1
+INNER JOIN doctors AS T2
+  ON T1.doctor_id = T2.doctor_id
+WHERE
+  LOWER(T1.status) = 'completed'
+GROUP BY
+  T2.specialty
+ORDER BY
+  completed_appointments_count DESC;","SELECT d.specialty, COUNT(*) AS completed_appointments FROM appointments a JOIN doctors d ON a.doctor_id = d.doctor_id WHERE a.status = 'Completed' GROUP BY d.specialty ORDER BY completed_appointments DESC, d.specialty;"
+healthcare_patient_count_by_city,healthcare,easy,llm,gemini,gemini-2.5-flash,True,6,True,True,False,True,False,1.0,0.0,True,patients,"appointments, doctors, hospitals, patients, prescriptions, treatments",1854.1,,"SELECT city, COUNT(patient_id) AS num_patients
+FROM patients
+GROUP BY city;","SELECT city, COUNT(*) AS patient_count FROM patients GROUP BY city ORDER BY patient_count DESC, city;"
