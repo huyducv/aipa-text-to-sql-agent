@@ -118,8 +118,13 @@ In the Streamlit sidebar you can toggle schema RAG and adjust how many tables ar
 |   `-- evaluate_text_to_sql.py     # Automatic model evaluation
 |-- docs/
 |   |-- report.md                   # Assignment report draft
-|   |-- presentation.md             # Presentation outline
-|   `-- deployment.md               # Streamlit Community checklist
+|   `-- supporting/                 # Presentation, deployment, architecture, screenshots
+|       |-- presentation.md          # Presentation transcript and slide content
+|       |-- deployment.md            # Streamlit Community checklist
+|       |-- architecture.md          # Architecture notes
+|       |-- architecture.drawio      # Diagram source
+|       |-- screenshots.md           # Screenshot guidance
+|       `-- enterprise-text-to-sql-agent-presentation.pptx
 |-- data/
 |   |-- customers.csv               # Small CSV sample
 |   |-- sales.csv                   # Small CSV sample
@@ -296,7 +301,7 @@ For hosted deployment, use:
 - Main file path: `app.py`
 - Secrets: add `GEMINI_API_KEY`
 
-See `docs/deployment.md` for the full checklist. Ollama is best treated as a local/offline demo option because Streamlit Community Cloud will not have access to your local Ollama server.
+See `docs/supporting/deployment.md` for the full checklist. Ollama is best treated as a local/offline demo option because Streamlit Community Cloud will not have access to your local Ollama server.
 
 ## Notes
 

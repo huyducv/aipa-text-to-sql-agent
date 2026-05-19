@@ -1,6 +1,6 @@
 # Enterprise Text-to-SQL Agent: Academic Report
 
-Group Number: `TODO`
+Group Number: to be confirmed by the submission portal
 
 Group Members and Student IDs:
 
@@ -93,7 +93,9 @@ The empirical results show that the project successfully implements the required
 
 The Schema RAG component achieved an average **schema table recall of 1.0** across the benchmark cases, meaning the expected relevant tables were retrieved for all cases. This is important because Text-to-SQL systems frequently fail when the model receives incomplete or irrelevant schema context. The prompt-size saving in the gold baseline averaged **6.0%**, with larger savings on some retail cases where the schema contained more tables and relationships.
 
-The available Gemini evaluation was quota-limited. A three-case smoke test using Gemini 2.5 Flash produced **1/3 safe SQL**, **1/3 execution success**, **1/3 value match**, **1/3 row match**, and **0/3 exact result match**, with average latency of **3093.57 ms**. This result should be interpreted cautiously because it was not a complete benchmark run. It nevertheless provides useful evidence about real deployment constraints: LLM systems are affected not only by algorithmic quality, but also by **API quotas**, **latency**, and **model output reliability**.
+Gemini evaluation was then run with `gemini-2.5-flash` using 10 configured API keys for quota failover. This full 12-case run completed with **12/12 safe SQL**, **12/12 execution success**, **11/12 value match**, **6/12 row match**, and **0/12 exact result match**, with average latency of **3.28 seconds**. Earlier single-key Gemini testing hit `429 RESOURCE_EXHAUSTED` errors, so the multi-key manager is an important operational improvement rather than a cosmetic feature.
+
+The same benchmark was also run with local Ollama models. `llama3:latest` achieved **12/12 safe SQL**, **12/12 execution success**, **8/12 value match**, **5/12 row match**, and **0/12 exact result match**, with average latency of **3.78 seconds**. `gemma4:latest` achieved **10/12 safe SQL**, **10/12 execution success**, **8/12 value match overall**, **8/10 value match among executed queries**, **3/12 row match**, and **0/12 exact result match**, with average latency of **5.65 seconds**. These results show that exact-match scoring is intentionally strict: many generated queries returned useful values but failed exact matching because of aliases, rounding, or row-order differences.
 
 Overall, the project demonstrates that a practical Text-to-SQL assistant should not rely on generation alone. A more responsible architecture combines **LLM semantic parsing** with **retrieval grounding**, **transparent SQL display**, **read-only execution**, and **empirical validation**.
 
@@ -185,7 +187,7 @@ The system architecture consists of five major layers: user interface, data and 
 
 The backend is organised as a Python package under `text_to_sql_agent/`. The main modules are `ingestion.py` for CSV ingestion, `schema.py` for schema extraction and schema chunk construction, `rag.py` for hybrid schema retrieval, `llm.py` for Gemini and Ollama generation, `safety.py` for SQL validation, `execution.py` for read-only SQLite execution, and `pipeline.py` for orchestration. The file `text_to_sql_agent_mvp.py` remains as a compatibility wrapper for the notebook, tests, and Streamlit app.
 
-The architectural diagram is stored in `docs/architecture.drawio`. For the final PDF submission, the `Presentation Architecture` page should be exported as a PNG or PDF and inserted as Figure 1.
+The architectural diagram is stored in `docs/supporting/architecture.drawio`. For the final PDF submission, the `Presentation Architecture` page should be exported as a PNG or PDF and inserted as Figure 1.
 
 ### 4.2 Data Collection and Preprocessing
 
@@ -241,7 +243,7 @@ The fourth design decision was to keep the system reproducible. The implementati
 
 The evaluation uses 12 benchmark questions across university, retail, and healthcare databases. Each case contains a natural-language question, database path, gold SQL query, expected relevant tables, and difficulty label. The evaluator executes both the gold SQL and the generated SQL, compares their outputs, measures latency, and records whether the generated query is safe and executable.
 
-The evaluation can be run in gold mode or LLM mode. Gold mode verifies that the benchmark and execution environment are correct. LLM mode evaluates generated SQL from Gemini or Ollama. The current results include a complete gold-baseline run, a quota-limited Gemini 2.0 Flash run, and a three-case Gemini 2.5 Flash smoke test.
+The evaluation can be run in gold mode or LLM mode. Gold mode verifies that the benchmark and execution environment are correct. LLM mode evaluates generated SQL from Gemini or Ollama. The current evidence includes a complete gold-baseline run, a complete Gemini 2.5 Flash run using multi-key quota failover, and complete local Ollama runs for `llama3:latest` and `gemma4:latest`.
 
 ### 5.2 Dataset Description
 
@@ -270,21 +272,22 @@ Table 1 summarises the available evaluation results.
 
 | Model / Run | Schema RAG | Cases | Safe SQL | Execution Success | Value Match | Row Match | Exact Match | Avg Schema Recall | Avg Prompt Saved | Avg Latency |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Gold SQL baseline | Yes | 12 | 12/12 | 12/12 | 12/12 | 12/12 | 12/12 | 1.0 | 6.0% | 0.94 ms |
-| Gemini 2.0 Flash, quota-limited | Yes | 12 | 0/12 | 0/12 | 0/12 | 0/12 | 0/12 | 1.0 | N/A | 611.19 ms |
-| Gemini 2.5 Flash smoke test | Yes | 3 | 1/3 | 1/3 | 1/3 | 1/3 | 0/3 | 1.0 | 0.0% | 3093.57 ms |
+| Gold SQL baseline | Yes | 12 | 12/12 | 12/12 | 12/12 | 12/12 | 12/12 | 1.0 | 6.0% | 0.98 ms |
+| Gemini 2.5 Flash, multi-key | Yes | 12 | 12/12 | 12/12 | 11/12 | 6/12 | 0/12 | 1.0 | 6.0% | 3.28 s |
+| Ollama `llama3:latest` | Yes | 12 | 12/12 | 12/12 | 8/12 | 5/12 | 0/12 | 1.0 | 6.0% | 3.78 s |
+| Ollama `gemma4:latest` | Yes | 12 | 10/12 | 10/12 | 8/12 | 3/12 | 0/12 | 1.0 | 6.0% | 5.65 s |
 
 The gold SQL baseline confirms that the evaluation harness, datasets, and safety/execution stack work correctly. All benchmark gold queries passed validation and matched expected results. The Schema RAG layer retrieved all expected tables across the benchmark, giving an average recall of **1.0**.
 
-The Gemini 2.0 Flash run failed because of API quota exhaustion. The results file records repeated `429 RESOURCE_EXHAUSTED` errors rather than SQL-quality failures. This run is therefore evidence of an operational constraint, not evidence that the model cannot solve the cases. The Gemini 2.5 Flash smoke test completed three cases and successfully executed one, but exact match remained **0/3** because exact column matching is stricter than value or row matching.
+The Gemini results show the strongest LLM performance in this benchmark, with 11 of 12 cases matching the gold values after canonicalisation. The local-model results show a practical trade-off: `llama3:latest` was safer and faster end-to-end, while `gemma4:latest` matched 8 of the 10 queries it successfully executed but produced two blocked outputs on harder retail revenue questions. Exact match remained **0/12** for all LLM runs because the metric requires values, rows, and column names to match the gold output exactly.
 
 Recommended figures for the final report are:
 
-- Figure 1: system architecture exported from `docs/architecture.drawio`;
+- Figure 1: system architecture exported from `docs/supporting/architecture.drawio`;
 - Figure 2: Streamlit interface showing provider/model controls and database selection;
 - Figure 3: a generated SQL answer and result table for a retail or university question;
 - Figure 4: Schema RAG retrieval diagnostics showing selected tables, scores, matched terms, and prompt savings;
-- Figure 5: evaluation summary table from `evaluation/results/evaluation_gold.md`.
+- Figure 5: evaluation summary table from `evaluation/results/evaluation_gold.md` and the LLM result table documented in `README.md`.
 
 ### 5.5 Result Interpretation and Discussion
 
@@ -292,7 +295,7 @@ The strongest evidence of effectiveness is that the project implements a complet
 
 The Schema RAG results are particularly encouraging because table recall was perfect across the benchmark. This suggests that the retrieval layer successfully identifies relevant schema context for questions involving single-table aggregation, multi-table joins, and domain-specific measures. However, the average prompt saving was modest because the benchmark databases are small. Larger databases would likely show greater benefits from retrieving only selected schema chunks.
 
-The LLM results should be interpreted with caution. The quota-limited Gemini run shows that external model APIs introduce reliability constraints that are outside the algorithm itself. The smoke test also shows that value-level correctness can be easier to achieve than exact structural matching. For example, a generated query may produce correct values but use different column aliases, leading to a failed exact match. This highlights why multiple metrics are useful.
+The LLM results show that value-level correctness can be easier to achieve than exact structural matching. For example, a generated query may produce correct values but use different column aliases, omit expected rounding, or return rows in a different order, leading to a failed exact match. This highlights why multiple metrics are useful. The Gemini run also shows that external model APIs require operational controls such as quota failover, while local Ollama runs avoid hosted quota limits but may have lower accuracy or require more local compute.
 
 From an ethical perspective, the results support the decision to display generated SQL and retrieval evidence. Users should be able to inspect how an answer was derived, especially when the result may inform decisions in education, retail, or healthcare administration.
 
@@ -351,10 +354,12 @@ The live Streamlit demo is available at:
 Set up the Python environment:
 
 ```bash
-python -m venv .venv
-.venv\Scripts\activate
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 ```
+
+On Windows, use `.venv\Scripts\activate` instead of `source .venv/bin/activate`.
 
 For Gemini, create a `.env` file in the project root:
 
@@ -379,15 +384,15 @@ streamlit run app.py
 Run the unit tests:
 
 ```bash
-python -m unittest discover -s tests
+python3 -m unittest discover -s tests
 ```
 
 Run the reproducible evaluation:
 
 ```bash
-python scripts/evaluate_text_to_sql.py --mode gold
-python scripts/evaluate_text_to_sql.py --mode llm --provider gemini --model gemini-2.5-flash --delay-seconds 15
-python scripts/evaluate_text_to_sql.py --mode llm --provider ollama --model gemma3
+python3 scripts/evaluate_text_to_sql.py --mode gold
+python3 scripts/evaluate_text_to_sql.py --mode llm --provider gemini --model gemini-2.5-flash --delay-seconds 15
+python3 scripts/evaluate_text_to_sql.py --mode llm --provider ollama --model gemma3
 ```
 
 Evaluation outputs are written to `evaluation/results/` as CSV and Markdown summaries.

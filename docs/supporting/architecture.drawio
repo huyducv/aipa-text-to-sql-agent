@@ -140,10 +140,10 @@
         <mxCell id="artifact2" value="docs/report.md&#xa;HD-oriented method, results, reflection" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fillColor=#ffffff;strokeColor=#9ca3af;fontSize=14;fontColor=#111827;spacing=10;" vertex="1" parent="1">
           <mxGeometry x="455" y="735" width="300" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="artifact3" value="docs/presentation.md&#xa;7-minute group presentation outline" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fillColor=#ffffff;strokeColor=#9ca3af;fontSize=14;fontColor=#111827;spacing=10;" vertex="1" parent="1">
+        <mxCell id="artifact3" value="docs/supporting/presentation.md&#xa;7-minute group presentation outline" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fillColor=#ffffff;strokeColor=#9ca3af;fontSize=14;fontColor=#111827;spacing=10;" vertex="1" parent="1">
           <mxGeometry x="830" y="735" width="300" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="artifact4" value="evaluation/results&#xa;Gold baseline and LLM evaluation outputs" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fillColor=#ffffff;strokeColor=#9ca3af;fontSize=14;fontColor=#111827;spacing=10;" vertex="1" parent="1">
+        <mxCell id="artifact4" value="evaluation evidence&#xa;Gold baseline, Gemini multi-key, local Ollama results" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fillColor=#ffffff;strokeColor=#9ca3af;fontSize=14;fontColor=#111827;spacing=10;" vertex="1" parent="1">
           <mxGeometry x="1205" y="735" width="300" height="60" as="geometry" />
         </mxCell>
         <mxCell id="artifact5" value="Streamlit Community Cloud&#xa;Public deployed app for demonstration" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Google Sans;fillColor=#ffffff;strokeColor=#9ca3af;fontSize=14;fontColor=#111827;spacing=10;" vertex="1" parent="1">
