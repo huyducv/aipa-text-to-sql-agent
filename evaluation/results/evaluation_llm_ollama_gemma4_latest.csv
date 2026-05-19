@@ -1,0 +1,57 @@
+id,dataset,difficulty,mode,provider,model_name,use_rag,rag_top_k,safe_sql,execution_ok,row_match,value_match,exact_result_match,schema_table_recall,prompt_saved_pct,cache_hit,expected_tables,retrieved_tables,latency_ms,error,generated_sql,gold_sql
+university_major_counts,university,easy,llm,ollama,gemma4:latest,True,6,True,True,True,True,False,1.0,0.0,True,students,"courses, grades, students",7079.67,,"SELECT major, COUNT(student_id) FROM students GROUP BY major","SELECT major, COUNT(*) AS student_count FROM students GROUP BY major ORDER BY major;"
+university_average_score_by_course,university,medium,llm,ollama,gemma4:latest,True,6,True,True,False,False,False,1.0,0.0,True,"courses, grades","courses, grades, students",1770.44,,"SELECT
+  T2.course_name,
+  AVG(T1.score)
+FROM grades AS T1
+INNER JOIN courses AS T2
+ON T1.course_id = T2.course_id
+GROUP BY
+  T2.course_name;","SELECT c.course_code, c.course_name, ROUND(AVG(g.score), 2) AS average_score FROM grades g JOIN courses c ON g.course_id = c.course_id GROUP BY c.course_id, c.course_code, c.course_name ORDER BY c.course_code;"
+university_top_students_by_average_score,university,medium,llm,ollama,gemma4:latest,True,6,True,True,False,True,False,1.0,0.0,True,"grades, students","courses, grades, students",6610.16,,"SELECT
+  T1.full_name,
+  AVG(T2.score)
+FROM students AS T1
+INNER JOIN grades AS T2
+  ON T1.student_id = T2.student_id
+GROUP BY
+  T1.student_id
+ORDER BY
+  AVG(T2.score) DESC
+LIMIT 5","SELECT s.full_name, ROUND(AVG(g.score), 2) AS average_score FROM students s JOIN grades g ON s.student_id = g.student_id GROUP BY s.student_id, s.full_name ORDER BY average_score DESC, s.full_name LIMIT 5;"
+university_grade_distribution,university,easy,llm,ollama,gemma4:latest,True,6,True,True,True,True,False,1.0,0.0,True,grades,"courses, grades, students",2557.61,,"SELECT grade, COUNT(*) FROM grades GROUP BY grade","SELECT grade, COUNT(*) AS grade_count FROM grades GROUP BY grade ORDER BY grade;"
+retail_revenue_by_region,retail,hard,llm,ollama,gemma4:latest,True,6,False,False,False,False,False,1.0,25.7,True,"customers, order_items, orders, regions","customer_support_tickets, customers, marketing_campaigns, order_items, orders, regions, returns, stores",11095.24,BLOCKED_UNSAFE_SQL,,"SELECT r.region_name, ROUND(SUM(oi.quantity * oi.unit_price * (1 - oi.discount_pct)), 2) AS revenue FROM orders o JOIN order_items oi ON o.order_id = oi.order_id JOIN customers c ON o.customer_id = c.customer_id JOIN regions r ON c.region_id = r.region_id WHERE o.order_status = 'Completed' GROUP BY r.region_name ORDER BY revenue DESC;"
+retail_revenue_by_category,retail,hard,llm,ollama,gemma4:latest,True,6,False,False,False,False,False,1.0,4.1,True,"order_items, orders, products","customer_support_tickets, customers, inventory_snapshots, marketing_campaigns, order_items, orders, products, returns, stores, suppliers",11603.88,BLOCKED_UNSAFE_SQL,"SELECT
+  T2.category,
+  SUM(T1.quantity * T1.unit_price * (1 - T1.discount_pct)) AS total_revenue
+FROM order_items AS T1
+INNER JOIN products AS T2
+  ON T1.product_id = T2.product_id
+INNER JOIN orders AS T3
+  ON T1.order_id =","SELECT p.category, ROUND(SUM(oi.quantity * oi.unit_price * (1 - oi.discount_pct)), 2) AS revenue FROM orders o JOIN order_items oi ON o.order_id = oi.order_id JOIN products p ON oi.product_id = p.product_id WHERE o.order_status = 'Completed' GROUP BY p.category ORDER BY revenue DESC;"
+retail_support_satisfaction_by_priority,retail,medium,llm,ollama,gemma4:latest,True,6,True,True,False,False,False,1.0,22.9,True,customer_support_tickets,"customer_support_tickets, customers, marketing_campaigns, orders, products, regions, stores, suppliers",4058.18,,SELECT AVG(satisfaction_score) FROM customer_support_tickets GROUP BY priority,"SELECT priority, ROUND(AVG(satisfaction_score), 2) AS average_satisfaction FROM customer_support_tickets GROUP BY priority ORDER BY average_satisfaction DESC, priority;"
+retail_return_reason_counts,retail,easy,llm,ollama,gemma4:latest,True,6,True,True,False,True,False,1.0,19.0,True,returns,"customer_support_tickets, customers, order_items, orders, products, regions, returns, stores, suppliers",5381.16,,"SELECT reason, COUNT(return_id) AS return_count FROM returns GROUP BY reason ORDER BY return_count DESC","SELECT reason, COUNT(*) AS return_count FROM returns GROUP BY reason ORDER BY return_count DESC, reason;"
+healthcare_appointments_by_status,healthcare,easy,llm,ollama,gemma4:latest,True,6,True,True,True,True,False,1.0,0.0,True,appointments,"appointments, doctors, hospitals, patients, prescriptions, treatments",915.13,,"SELECT status, COUNT(appointment_id) FROM appointments GROUP BY status","SELECT status, COUNT(*) AS appointment_count FROM appointments GROUP BY status ORDER BY appointment_count DESC, status;"
+healthcare_treatment_cost_by_city,healthcare,hard,llm,ollama,gemma4:latest,True,6,True,True,False,True,False,1.0,0.0,True,"appointments, doctors, hospitals, treatments","appointments, doctors, hospitals, patients, prescriptions, treatments",8323.35,,"SELECT
+  T3.city,
+  AVG(T1.cost)
+FROM treatments AS T1
+INNER JOIN appointments AS T2
+  ON T1.appointment_id = T2.appointment_id
+INNER JOIN doctors AS T4
+  ON T2.doctor_id = T4.doctor_id
+INNER JOIN hospitals AS T3
+  ON T4.hospital_id = T3.hospital_id
+GROUP BY
+  T3.city;","SELECT h.city, ROUND(AVG(t.cost), 2) AS average_treatment_cost FROM treatments t JOIN appointments a ON t.appointment_id = a.appointment_id JOIN doctors d ON a.doctor_id = d.doctor_id JOIN hospitals h ON d.hospital_id = h.hospital_id GROUP BY h.city ORDER BY average_treatment_cost DESC;"
+healthcare_completed_appointments_by_specialty,healthcare,medium,llm,ollama,gemma4:latest,True,6,True,True,False,True,False,1.0,0.0,True,"appointments, doctors","appointments, doctors, hospitals, patients, prescriptions, treatments",7526.97,,"SELECT
+  T2.specialty,
+  COUNT(T1.appointment_id)
+FROM appointments AS T1
+INNER JOIN doctors AS T2
+  ON T1.doctor_id = T2.doctor_id
+WHERE
+  T1.status = 'Completed'
+GROUP BY
+  T2.specialty;","SELECT d.specialty, COUNT(*) AS completed_appointments FROM appointments a JOIN doctors d ON a.doctor_id = d.doctor_id WHERE a.status = 'Completed' GROUP BY d.specialty ORDER BY completed_appointments DESC, d.specialty;"
+healthcare_patient_count_by_city,healthcare,easy,llm,ollama,gemma4:latest,True,6,True,True,False,True,False,1.0,0.0,True,patients,"appointments, doctors, hospitals, patients, prescriptions, treatments",900.21,,"SELECT city, COUNT(patient_id) FROM patients GROUP BY city","SELECT city, COUNT(*) AS patient_count FROM patients GROUP BY city ORDER BY patient_count DESC, city;"

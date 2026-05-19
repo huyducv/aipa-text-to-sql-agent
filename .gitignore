@@ -219,4 +219,3 @@ __marimo__/
 
 # Local app outputs
 data/audit_log.jsonl
-evaluation/results/
